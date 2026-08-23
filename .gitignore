@@ -1,0 +1,18 @@
+# compiled output — never commit built artifacts
+dist/
+
+# dependencies
+node_modules/
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
