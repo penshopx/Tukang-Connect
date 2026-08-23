@@ -1,0 +1,38 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "IRogEGie-_lijusBWgRIm"
+uri = "file://attached_assets/generated_videos/kerjaproyek-01-opening.mp4"
+type = "video"
+title = "Clip 1 — Opening: Indonesian Construction Skyline"
+
+[[outputs]]
+id = "Rub4Mr4wCeU_cEmsJCxOK"
+uri = "file://attached_assets/generated_videos/kerjaproyek-02-ai-matching.mp4"
+type = "video"
+title = "Clip 2 — AI Worker Matching Network"
+
+[[outputs]]
+id = "KCGRRKNnK0VuNJruTrmNl"
+uri = "file://attached_assets/generated_videos/kerjaproyek-03-partnership.mp4"
+type = "video"
+title = "Clip 3 — Owner & Worker Partnership"
+
+[[outputs]]
+id = "k8ZzxLY2nqv_7h3hqSKuU"
+uri = "file://attached_assets/generated_videos/kerjaproyek-04-app.mp4"
+type = "video"
+title = "Clip 4 — App Product Reveal"
+
+[[outputs]]
+id = "bpzNz33DdT48Bkp9XCUh7"
+uri = "file://attached_assets/generated_videos/kerjaproyek-full.mp4"
+type = "video"
+title = "KerjaProyek — Full Showcase (~32 detik)"
+
+[[outputs]]
+id = "wPZmmU69mKsh8lhgwpy-3"
+uri = "file://attached_assets/generated_videos/kerjaproyek-loop.mp4"
+type = "video"
+title = "KerjaProyek — Loop x3 (~1 menit 35 detik)"

@@ -1,0 +1,1 @@
+- [Replit migration notes](replit-migration.md) — Vite HMR behind Replit proxy + replacing security-blocked deps during agent→Replit import.
