@@ -28,6 +28,7 @@ const GLOBAL_DB_UNAVAILABLE_RESPONSE = {
   code: "DB_UNAVAILABLE",
   error: "Database sedang tidak dapat dijangkau. Silakan coba lagi sebentar.",
 };
+const GLOBAL_HANDLER_RESPONSE = { error: "Service temporarily unavailable" };
 
 // ─── Fake user for establishing an authenticated session ──────────────────────
 
@@ -126,6 +127,19 @@ function resetStorageMocks() {
   }
 }
 
+/** Returns a supertest agent with an authenticated session cookie. */
+async function authenticatedAgent() {
+  vi.mocked(storage.getUserByEmail).mockResolvedValueOnce(FAKE_USER as any);
+
+  const agent = request.agent(app);
+  const loginRes = await agent
+    .post("/api/login")
+    .send({ email: FAKE_USER.email, password: FAKE_USER_PASSWORD });
+
+  expect(loginRes.status).toBe(200);
+  return agent;
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("API routes when database is unreachable", () => {
@@ -186,6 +200,126 @@ describe("API routes when database is unreachable", () => {
       expect(res.status).toBe(503);
       expect(res.headers["content-type"]).toMatch(/application\/json/);
       expect(res.body).toEqual({ error: DB_UNAVAILABLE_MESSAGE });
+    });
+  });
+
+  // ── Profile routes ─────────────────────────────────────────────────────────
+  // These routes do not have local try/catch blocks.  A rejected storage call
+  // must reach the global handler and become a safe JSON response instead of an
+  // unhandled rejection or an HTML error page.  Database errors use the
+  // retryable 503 response; unrelated errors use the generic 500 fallback.
+
+  describe("GET /api/profiles", () => {
+    it("returns HTTP 503 with a retryable DB_UNAVAILABLE response when profile loading fails", async () => {
+      vi.mocked(storage.getProfiles).mockRejectedValue(dbError);
+
+      const res = await request(app).get("/api/profiles");
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+
+    it("returns HTTP 503 when loading the users used to enrich profiles fails", async () => {
+      vi.mocked(storage.getProfiles).mockResolvedValue([]);
+      vi.mocked(storage.getUsers).mockRejectedValue(dbError);
+
+      const res = await request(app).get("/api/profiles");
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+
+    it("returns HTTP 500 with the global structured error for a non-database failure", async () => {
+      vi.mocked(storage.getProfiles).mockRejectedValue(new Error("profile loading failed"));
+
+      const res = await request(app).get("/api/profiles");
+
+      expect(res.status).toBe(500);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual(GLOBAL_HANDLER_RESPONSE);
+    });
+  });
+
+  describe("PUT /api/profiles", () => {
+    it("returns HTTP 503 with a retryable DB_UNAVAILABLE response when profile saving fails", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.updateProfile).mockRejectedValue(dbError);
+
+      const res = await agent
+        .put("/api/profiles")
+        .send({ bio: "Updated profile" });
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+
+    it("returns HTTP 500 with the global structured error for a non-database failure", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.updateProfile).mockRejectedValue(new Error("profile saving failed"));
+
+      const res = await agent
+        .put("/api/profiles")
+        .send({ bio: "Updated profile" });
+
+      expect(res.status).toBe(500);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual(GLOBAL_HANDLER_RESPONSE);
+    });
+  });
+
+  describe("GET /api/profiles/:userId", () => {
+    it("returns HTTP 503 when loading the requested profile fails", async () => {
+      vi.mocked(storage.getProfileByUserId).mockRejectedValue(dbError);
+      vi.mocked(storage.getUserById).mockResolvedValue(FAKE_USER as any);
+
+      const res = await request(app).get(`/api/profiles/${FAKE_USER.id}`);
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+
+    it("returns HTTP 503 when loading the profile owner fails", async () => {
+      vi.mocked(storage.getProfileByUserId).mockResolvedValue({ userId: FAKE_USER.id } as any);
+      vi.mocked(storage.getUserById).mockRejectedValue(dbError);
+
+      const res = await request(app).get(`/api/profiles/${FAKE_USER.id}`);
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+  });
+
+  describe("GET /api/me", () => {
+    it("returns HTTP 503 when the current user cannot be loaded", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockRejectedValue(dbError);
+
+      const res = await agent.get("/api/me");
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+
+    it("returns HTTP 503 when the current user's profile cannot be loaded", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockResolvedValue(FAKE_USER as any);
+      vi.mocked(storage.getProfileByUserId).mockRejectedValue(dbError);
+
+      const res = await agent.get("/api/me");
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+    });
+
+    it("returns HTTP 500 with the global structured error for a non-database failure", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockRejectedValue(new Error("current user loading failed"));
+
+      const res = await agent.get("/api/me");
+
+      expect(res.status).toBe(500);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual(GLOBAL_HANDLER_RESPONSE);
     });
   });
 
@@ -257,20 +391,6 @@ describe("API routes when database is unreachable", () => {
       clientSigned: false,
       workerSigned: false,
     };
-
-    /** Returns a supertest agent with an authenticated session cookie. */
-    async function authenticatedAgent() {
-      // Login succeeds — only getUserByEmail needs a happy-path return.
-      vi.mocked(storage.getUserByEmail).mockResolvedValueOnce(FAKE_USER as any);
-
-      const agent = request.agent(app); // agent preserves cookies across requests
-      const loginRes = await agent
-        .post("/api/login")
-        .send({ email: FAKE_USER.email, password: FAKE_USER_PASSWORD });
-
-      expect(loginRes.status).toBe(200); // sanity-check: login worked
-      return agent;
-    }
 
     it("returns HTTP 503 with a retryable DB_UNAVAILABLE response when the DB is down", async () => {
       const agent = await authenticatedAgent();
