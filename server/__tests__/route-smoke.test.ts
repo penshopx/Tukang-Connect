@@ -21,6 +21,7 @@ vi.mock("../storage.js", () => ({
     getJobs: vi.fn(),
     getUsers: vi.fn(),
     getJobById: vi.fn(),
+    updateJob: vi.fn(),
     getApplicationsByJob: vi.fn(),
     createApplication: vi.fn(),
     createNotification: vi.fn(),
@@ -198,6 +199,54 @@ describe("Express route smoke tests", () => {
         },
       ]);
       expect(storage.getContracts).toHaveBeenCalledWith(OWNER.id);
+    });
+
+    describe("job mutations", () => {
+      const changes = {
+        title: "Renovasi rumah diperbarui",
+        budget: 125000000,
+      };
+      const updatedJob = { ...JOB, ...changes };
+
+      it("allows the project owner to update their own job", async () => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.updateJob).mockResolvedValueOnce(updatedJob as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.put(`/api/jobs/${JOB.id}`).send(changes);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(updatedJob);
+        expect(storage.updateJob).toHaveBeenCalledWith(JOB.id, changes);
+        expect(storage.updateJob).toHaveBeenCalledOnce();
+        expect(storage.getUserById).not.toHaveBeenCalled();
+      });
+
+      it("forbids another user from updating the project", async () => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(WORKER as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.put(`/api/jobs/${JOB.id}`).send(changes);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.updateJob).not.toHaveBeenCalled();
+      });
+
+      it("allows an admin to update a project owned by another user", async () => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(ADMIN as any);
+        vi.mocked(storage.updateJob).mockResolvedValueOnce(updatedJob as any);
+
+        const agent = await authenticatedAgent(ADMIN);
+        const response = await agent.put(`/api/jobs/${JOB.id}`).send(changes);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(updatedJob);
+        expect(storage.updateJob).toHaveBeenCalledWith(JOB.id, changes);
+        expect(storage.updateJob).toHaveBeenCalledOnce();
+      });
     });
 
     describe("job applications", () => {
