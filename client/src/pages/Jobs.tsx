@@ -88,9 +88,9 @@ export default function JobsPage() {
         <div className="mb-5 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl">
           <div className="flex items-center gap-2 mb-2">
             <Target className="h-4 w-4 text-emerald-600" />
-            <p className="font-semibold text-sm text-emerald-800">🎯 {highMatchJobs.length} Proyek Sangat Cocok Untuk Anda</p>
+            <p className="font-semibold text-sm text-emerald-800">🎯 Proyek Sangat Cocok Untuk Anda</p>
           </div>
-          <p className="text-xs text-emerald-700 mb-3">Berdasarkan profil dan keahlian Anda — kecocokan ≥85%</p>
+          <p className="text-xs text-emerald-700 mb-3">Berdasarkan profil dan keahlian Anda — lihat kecocokan yang paling relevan</p>
           <div className="flex gap-2 flex-wrap">
             {highMatchJobs.slice(0, 3).map((j: any) => (
               <button key={j.id} onClick={() => navigate(`/jobs/${j.id}`)}
@@ -294,7 +294,7 @@ export default function JobsPage() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <p className="font-semibold text-sm">Tingkatkan Peluang Diterima</p>
-              <p className="text-xs text-muted-foreground">Profil lengkap dengan sertifikasi BNSP/KKNI mendapat 3× lebih banyak tawaran</p>
+              <p className="text-xs text-muted-foreground">Profil lengkap dengan sertifikasi BNSP/KKNI membantu calon klien memahami kompetensi Anda</p>
             </div>
             <div className="flex gap-2">
               <Link href="/bimtek">

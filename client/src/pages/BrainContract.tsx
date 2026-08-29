@@ -127,7 +127,7 @@ export default function BrainContractPage() {
         <Brain className="h-8 w-8 text-primary absolute inset-0 m-auto" />
       </div>
       <p className="text-lg font-semibold">Menganalisis Kontrak...</p>
-      <p className="text-sm text-muted-foreground text-center max-w-sm">5 agen AI sedang memeriksa kepatuhan kontrak, urutan konstruksi, anggaran, progres, dan kualitas lapangan.</p>
+       <p className="text-sm text-muted-foreground text-center max-w-sm">AI sedang memeriksa kepatuhan kontrak, urutan konstruksi, anggaran, progres, dan kualitas lapangan.</p>
     </div>
   );
 
@@ -204,7 +204,7 @@ export default function BrainContractPage() {
             </div>
           </div>
         </div>
-        <p className="text-white/50 text-xs mt-4">Dianalisis pada {new Date(data.generatedAt).toLocaleString("id-ID")} · 5 agen aktif</p>
+        <p className="text-white/50 text-xs mt-4">Dianalisis pada {new Date(data.generatedAt).toLocaleString("id-ID")} · Dukungan AI aktif</p>
       </div>
 
       {/* Action Items */}

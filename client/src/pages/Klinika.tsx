@@ -129,7 +129,7 @@ export default function KlinikaPage() {
           <MessageSquare className="h-6 w-6 text-primary" /> Klinika Teknis Konstruksi
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Forum tanya jawab teknis konstruksi — dijawab oleh 6 Agen AI spesialis + komunitas profesional
+          Forum tanya jawab teknis konstruksi — didukung AI spesialis dan komunitas profesional
         </p>
       </div>
 

@@ -60,20 +60,20 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   // Greetings
   {
     keys: ["halo", "hallo", "hai", "hello", "selamat pagi", "selamat siang", "selamat malam", "assalamualaikum"],
-    response: `Halo! Selamat datang di AI Assistant KerjaProyek 👷\n\nSaya bisa membantu Anda dengan:\n\n🤖 **Multi-Agen AI** — pertanyaan teknis konstruksi (6 spesialis)\n📚 **Knowledge Base** — info harga, platform, dan tips\n🔗 **Navigasi Fitur** — Klinika, Bimtek, Estimator, dll\n\nApa yang bisa saya bantu hari ini?`,
+    response: `Halo! Selamat datang di AI Assistant KerjaProyek 👷\n\nSaya bisa membantu Anda dengan:\n\n🤖 **Dukungan AI** — pertanyaan teknis konstruksi\n📚 **Knowledge Base** — info harga, platform, dan tips\n🔗 **Navigasi Fitur** — Klinika, Bimtek, Estimator, dan lainnya\n\nApa yang bisa saya bantu hari ini?`,
     links: [{ label: "Klinika Teknis", href: "/klinika" }, { label: "AI Chatbot Help", href: "/chatbot" }],
   },
-  { keys: ["terima kasih", "makasih", "thx", "thanks", "oke", "ok siap"], response: "Sama-sama! 😊 Hubungi saya lagi kapanpun ya.\n\n💡 **Tips:** Untuk jawaban teknis yang lebih dalam dengan referensi SNI, kunjungi **Klinika Teknis** — forum Q&A dengan 6 Agen AI spesialis konstruksi!", links: [{ label: "Buka Klinika", href: "/klinika" }] },
+  { keys: ["terima kasih", "makasih", "thx", "thanks", "oke", "ok siap"], response: "Sama-sama! 😊 Hubungi saya lagi kapanpun ya.\n\n💡 **Tips:** Untuk jawaban teknis yang lebih dalam dengan referensi SNI, kunjungi **Klinika Teknis** — forum tanya jawab dengan dukungan AI spesialis konstruksi!", links: [{ label: "Buka Klinika", href: "/klinika" }] },
 
   // Harga & Biaya
   {
     keys: ["harga renovasi", "biaya renovasi", "renovasi rumah berapa", "ongkos renovasi"],
-    response: `Biaya renovasi rumah (estimasi 2025):\n\n**Ekonomis:** Rp 1,2 – 1,8 juta/m²\n**Standar:** Rp 1,8 – 3,5 juta/m²\n**Premium:** Rp 3,5 – 8 juta/m²\n\n📊 **Contoh:** 50m² standar = Rp 90 – 175 juta\n\n⚠️ Harga sangat bergantung lokasi, material, dan scope pekerjaan. Jakarta bisa 35% lebih mahal dari kota lain.\n\n💡 Gunakan **Estimator Biaya** kami untuk kalkulasi akurat berbasis SNI & AHSP 2025 per kota!`,
+    response: `Biaya renovasi rumah sangat bergantung pada lokasi, material, kondisi bangunan, dan ruang lingkup pekerjaan.\n\nEstimator Biaya membantu menyusun rincian material dan upah berdasarkan kebutuhan proyek serta acuan SNI dan AHSP yang relevan.\n\n💡 Gunakan **Estimator Biaya** untuk menyusun perkiraan yang lebih sesuai dengan konteks proyek Anda.`,
     links: [{ label: "Hitung RAB Sekarang", href: "/cost-estimator" }, { label: "Cari Tukang Renovasi", href: "/experts?category=Renovasi" }],
   },
   {
     keys: ["biaya bangun rumah", "harga konstruksi baru", "bangun rumah berapa", "biaya membangun"],
-    response: `Biaya membangun rumah baru (2025):\n\n**Ekonomis:** Rp 3 – 4,5 juta/m²\n**Standar:** Rp 4,5 – 6 juta/m²\n**Premium:** Rp 6 – 12 juta/m²\n\n📊 **Contoh:** Rumah 72m² standar ≈ Rp 324 – 432 juta\n\n**Breakdown biaya tipikal:**\n• Pondasi & struktur: 30-35%\n• Dinding & plesteran: 15-20%\n• Atap & rangka: 15-18%\n• MEP (listrik, plambing): 10-15%\n• Finishing & kusen: 20-25%`,
+    response: `Biaya membangun rumah baru perlu disusun berdasarkan lokasi, desain, spesifikasi material, kondisi lahan, dan ruang lingkup pekerjaan.\n\nEstimator Biaya dapat membantu memecah kebutuhan menjadi komponen material, upah, dan pekerjaan sehingga lebih mudah ditinjau sebelum negosiasi.`,
     links: [{ label: "Estimator Biaya Detail", href: "/cost-estimator" }, { label: "Posting Proyek", href: "/jobs/create" }],
   },
   {
@@ -83,7 +83,7 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["harga keramik", "biaya pasang lantai", "ongkos keramik", "pemasangan keramik"],
-    response: `Biaya keramik & granit (2025):\n\n**Material:**\n• Keramik 40×40: Rp 50-120 rb/m²\n• Granit lokal: Rp 150-350 rb/m²\n• Homogeneous tile: Rp 200-500 rb/m²\n\n**Ongkos pasang:** Rp 55-90 rb/m² (AHSP 2025)\n\n⚠️ **Standar SNI pemasangan:**\n• Adukan mortar 2-3cm\n• Nat minimum 2mm\n• Cek waterpass & level sebelum cor\n• Slope minimal 1% ke floor drain KM/WC`,
+    response: `Biaya keramik dan granit sangat bergantung pada jenis material, kualitas, lokasi, luas pekerjaan, dan tingkat kerumitan pemasangan.\n\n⚠️ **Hal yang perlu diperhatikan:**\n• Pilih material sesuai fungsi ruang dan kondisi lapangan\n• Pastikan permukaan siap sebelum pemasangan\n• Gunakan acuan standar pemasangan yang relevan\n• Periksa kemiringan dan kerataan sebelum pekerjaan diselesaikan\n\n💡 Gunakan Estimator Biaya untuk menyusun perkiraan berdasarkan konteks proyek Anda.`,
     links: [{ label: "Cari Tukang Lantai", href: "/experts?category=Lantai" }, { label: "Estimator Biaya", href: "/cost-estimator" }],
   },
   {
@@ -105,23 +105,23 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   // Platform Features
   {
     keys: ["kerjaproyek itu apa", "platform apa", "tentang kerjaproyek", "cara kerja kerjaproyek", "fitur apa saja"],
-    response: `**KerjaProyek** adalah marketplace konstruksi + AI terlengkap di Indonesia 🏗️\n\n**Untuk Owner/Boher:**\n• 👷 Cari tukang & tenaga ahli terverifikasi SKK/KKNI\n• 💰 Estimator Biaya RAB berbasis SNI & AHSP 2025\n• 🔮 Brain Project — supervisi kontrak AI real-time\n• 📝 Kontrak digital + milestone otomatis\n\n**Untuk Tukang/Mandor:**\n• 📋 Cari proyek sesuai keahlian (AI match score)\n• 🎓 Bimtek 15 program PUPR/Kemnaker/BNSP\n• 🏆 Simulasi uji kompetensi SKKNI/BNSP\n• 📚 Materi teknis K3, Struktur, SNI\n\n**Untuk Semua:**\n• 🧠 Klinika Teknis — tanya 6 Agen AI spesialis\n• 🗞️ Job Board — 25+ lowongan konstruksi\n• 💬 AI Chatbot 24 jam`,
+    response: `**KerjaProyek** adalah marketplace konstruksi dengan dukungan AI untuk membantu alur kerja proyek 🏗️\n\n**Untuk Owner/Boher:**\n• 👷 Cari tukang dan tenaga ahli berdasarkan kompetensi\n• 💰 Estimator Biaya RAB berbasis SNI & AHSP\n• 🔮 Brain Project — dukungan supervisi kontrak\n• 📝 Kontrak digital dan milestone yang lebih tertata\n\n**Untuk Tukang/Mandor:**\n• 📋 Cari proyek sesuai keahlian\n• 🎓 Bimtek dari lembaga dan sumber yang relevan\n• 🏆 Simulasi uji kompetensi SKKNI/BNSP\n• 📚 Materi teknis K3, Struktur, dan SNI\n\n**Untuk Semua:**\n• 🧠 Klinika Teknis — tanya jawab dengan dukungan AI\n• 🗞️ Job Board — peluang kerja konstruksi\n• 💬 AI Chatbot untuk membantu kebutuhan Anda`,
     links: [{ label: "Dashboard Saya", href: "/dashboard" }, { label: "Daftar Gratis", href: "/register" }],
   },
   {
     keys: ["klinika", "klinika teknis", "forum teknis", "tanya teknis", "agen ai konstruksi"],
-    response: `**Klinika Teknis KerjaProyek** 🧠\n\nForum tanya jawab teknis konstruksi Indonesia:\n\n**6 Agen AI Spesialis:**\n🏗️ **Agen Struktur** — beton, baja, pondasi, SNI 2847/1726\n📐 **Agen Arsitektur** — denah, PBG, KDB, estetika\n⚡ **Agen MEP** — listrik PUIL, plambing, HVAC\n⛑️ **Agen K3** — APD, JSA, IBPR, PP 50/2012\n📊 **Agen Manajemen** — RAB, schedule, kontrak, PMBOK\n🧱 **Agen Material** — SNI material, spesifikasi, harga\n\nSetiap jawaban dilengkapi referensi standar + jawaban pendukung dari agen lain.`,
+    response: `**Klinika Teknis KerjaProyek** 🧠\n\nForum tanya jawab teknis konstruksi Indonesia dengan dukungan spesialis:\n\n🏗️ **Struktur** — beton, baja, pondasi, dan standar terkait\n📐 **Arsitektur** — denah, PBG, KDB, dan estetika\n⚡ **MEP** — listrik PUIL, plambing, dan HVAC\n⛑️ **K3** — APD, JSA, IBPR, dan regulasi terkait\n📊 **Manajemen** — RAB, jadwal, kontrak, dan pengelolaan proyek\n🧱 **Material** — standar material, spesifikasi, dan harga\n\nSetiap jawaban dilengkapi referensi standar dan perspektif pendukung.`,
     links: [{ label: "Buka Klinika Teknis", href: "/klinika" }, { label: "Tanya via Chatbot", href: "/chatbot" }],
   },
   {
     keys: ["brain project", "supervisi ai", "pengawasan kontrak", "supervisi proyek"],
-    response: `**Brain Project** 🔮 — Sistem Supervisi AI Real-time\n\nMemonitor kontrak aktif Anda dengan 5 agen AI:\n\n🛡️ **Contract Compliance** — validasi ketaatan kontrak\n🔗 **Construction Sequence** — urutan kerja sesuai SNI\n💰 **Budget Health** — monitoring anggaran vs realisasi\n📈 **Progress Monitor** — tracking milestone aktif\n🔍 **Field Quality** — indikator kualitas lapangan\n\n**Output:** Skor kesehatan 0-100 + faktor risiko + action items prioritized\n\n**Cara akses:** Dashboard → pilih kontrak aktif → klik "Brain Project"`,
+    response: `**Brain Project** 🔮 — Sistem Supervisi AI Real-time\n\nMembantu memonitor kontrak aktif Anda melalui beberapa sudut pandang:\n\n🛡️ **Contract Compliance** — validasi ketaatan kontrak\n🔗 **Construction Sequence** — urutan kerja sesuai SNI\n💰 **Budget Health** — monitoring anggaran vs realisasi\n📈 **Progress Monitor** — tracking milestone aktif\n🔍 **Field Quality** — indikator kualitas lapangan\n\n**Output:** Ringkasan kesehatan, faktor risiko, dan rekomendasi tindakan\n\n**Cara akses:** Dashboard → pilih kontrak aktif → klik "Brain Project"`,
     links: [{ label: "Buka Brain Project", href: "/dashboard" }, { label: "Lihat Kontrak", href: "/contracts" }],
   },
   {
     keys: ["bimtek", "pelatihan konstruksi", "kursus konstruksi", "training konstruksi"],
-    response: `**Bimtek & Pelatihan KerjaProyek** 🎓\n\n15 program dari lembaga resmi:\n\n🏛️ **Pemerintah:** PUPR, Kemnaker, Bina Konstruksi\n🎯 **Sertifikasi:** BNSP, K3 Umum, SKA/SKT\n💻 **Online/Hybrid:** BIM 5D Revit, Estimasi RAB, SNI\n\n**Kategori:**\nStruktur & Sipil · RAB & Estimasi · BIM & Digital\nK3 Konstruksi · Manajemen Proyek · MEP · Hukum Kontrak\n\n**Format:** Online · Offline · Hybrid · Self-paced\n**Biaya:** Rp 0 s/d 12 jt per program (ada yang disubsidi pemerintah)`,
-    links: [{ label: "Lihat 15 Bimtek", href: "/bimtek" }, { label: "Uji Kompetensi SKKNI", href: "/competency-test" }],
+    response: `**Bimtek & Pelatihan KerjaProyek** 🎓\n\nPilihan pelatihan dari lembaga dan sumber resmi:\n\n🏛️ **Pemerintah:** PUPR, Kemnaker, Bina Konstruksi\n🎯 **Sertifikasi:** BNSP, K3 Umum, SKA/SKT\n💻 **Online/Hybrid:** BIM, Estimasi RAB, dan SNI\n\n**Kategori:**\nStruktur & Sipil · RAB & Estimasi · BIM & Digital\nK3 Konstruksi · Manajemen Proyek · MEP · Hukum Kontrak\n\n**Format:** Online · Offline · Hybrid · Self-paced\n**Biaya:** Tergantung pelatihan dan penyelenggara; periksa detail pada halaman program.`,
+    links: [{ label: "Lihat Bimtek", href: "/bimtek" }, { label: "Uji Kompetensi SKKNI", href: "/competency-test" }],
   },
   {
     keys: ["uji kompetensi", "skkni", "bnsp", "sertifikat konstruksi", "skk", "kkni level"],
@@ -130,12 +130,12 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["estimator biaya", "rab", "rencana anggaran", "hitung rab", "estimasi proyek"],
-    response: `**Estimator Biaya RAB KerjaProyek** 💰\n\nKalkulator anggaran proyek berbasis SNI & AHSP 2025:\n\n**Fitur:**\n• 8 kategori pekerjaan (Renovasi, Konstruksi Baru, Cat, Lantai, dll)\n• 15 kota dengan faktor biaya lokasi AHSP\n• 3 kelas kualitas: Ekonomis · Standar · Premium\n• Breakdown material vs upah vs overhead\n• Estimasi timeline pengerjaan\n\n**Faktor lokasi:** Jakarta +35% · Bali +20% · Jogja -5% · Makassar -10%\n\n⚡ Hasil dalam detik — cocok untuk negosiasi & RAB awal!`,
+    response: `**Estimator Biaya RAB KerjaProyek** 💰\n\nKalkulator anggaran proyek berbasis SNI & AHSP:\n\n**Fitur:**\n• Kategori pekerjaan konstruksi yang relevan\n• Pertimbangan lokasi dan faktor biaya\n• Pilihan tingkat kualitas: Ekonomis · Standar · Premium\n• Rincian material, upah, dan overhead\n• Perkiraan timeline pengerjaan\n\n⚡ Gunakan hasilnya sebagai bahan awal untuk diskusi dan negosiasi proyek.`,
     links: [{ label: "Hitung RAB Sekarang", href: "/cost-estimator" }, { label: "Tanya Agen Manajemen", href: "/klinika" }],
   },
   {
     keys: ["job board", "lowongan konstruksi", "cari kerja konstruksi", "lowongan tukang", "loker konstruksi"],
-    response: `**Job Board KerjaProyek** 🗞️\n\nAggregasi lowongan konstruksi real-time:\n\n**Sumber:** Loker.id · Indeed · Jobstreet · Jooble · OLX · KerjaProyek\n**Jumlah:** 25+ lowongan aktif (diupdate otomatis)\n\n**Tipe Pekerjaan:**\n• Full time: Supervisor, Manager, Engineer\n• Harian: Mandor, Tukang spesialis\n• Borongan: Kontraktor, Tim tukang\n• Kontrak: Pengawas, QC/QA\n• Part time: Konsultan, Drafter\n\n**Gaji:** Rp 90rb/hari (helper) s/d Rp 25 jt/bln (Manager)\n\nPlus tabel **Referensi Upah Standar** AHSP 2025!`,
+    response: `**Job Board KerjaProyek** 🗞️\n\nAgregasi lowongan konstruksi yang diperbarui mengikuti ketersediaan sumber:\n\n**Sumber:** Loker.id · Indeed · Jobstreet · Jooble · OLX · KerjaProyek\n\n**Tipe Pekerjaan:**\n• Full time: Supervisor, Manager, Engineer\n• Harian: Mandor, Tukang spesialis\n• Borongan: Kontraktor, Tim tukang\n• Kontrak: Pengawas, QC/QA\n• Part time: Konsultan, Drafter\n\n**Upah:** Periksa detail setiap lowongan dan gunakan referensi AHSP sebagai bahan pertimbangan.`,
     links: [{ label: "Buka Job Board", href: "/job-board" }, { label: "Daftar Jadi Tukang", href: "/register" }],
   },
   {
@@ -145,22 +145,22 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["posting proyek", "cara post proyek", "membuat proyek", "buat lowongan"],
-    response: `**Cara Posting Proyek di KerjaProyek** 📋\n\n1. **Login** → Dashboard → "Buat Proyek"\n2. **Isi detail:** Judul, kategori, deskripsi lengkap\n3. **Estimasi budget:** Gunakan Estimator RAB kami dulu!\n4. **Lokasi & deadline**\n5. **Submit** → Tukang mulai melamar\n\n🤖 **AI Fitur saat posting:**\n• PriceSuggestWidget — saran harga pasar\n• AI Worker Matching — sistem cocokkan tukang terbaik\n• AgentRank — ranking lamaran otomatis\n\n⚡ Rata-rata proyek mendapat 3-7 lamaran dalam 24 jam!`,
+    response: `**Cara Posting Proyek di KerjaProyek** 📋\n\n1. **Login** → Dashboard → "Buat Proyek"\n2. **Isi detail:** Judul, kategori, deskripsi lengkap\n3. **Estimasi budget:** Gunakan Estimator RAB kami dulu!\n4. **Lokasi & deadline**\n5. **Submit** → Tukang mulai melamar\n\n🤖 **Fitur AI saat posting:**\n• PriceSuggestWidget — membantu memberi konteks harga\n• AI Worker Matching — mencocokkan tukang berdasarkan kebutuhan\n• AgentRank — membantu meninjau lamaran`,
     links: [{ label: "Buat Proyek Sekarang", href: "/jobs/create" }, { label: "Estimator RAB dulu", href: "/cost-estimator" }],
   },
   {
     keys: ["kontrak", "surat perjanjian", "spk", "kontrak digital"],
-    response: `**Kontrak Digital KerjaProyek** 📝\n\nKontrak konstruksi yang wajib memuat:\n\n✅ Identitas & legalitas kedua pihak\n✅ Deskripsi pekerjaan + spesifikasi material (SNI)\n✅ Nilai kontrak & jadwal pembayaran\n✅ Milestone & target penyelesaian\n✅ Sanksi keterlambatan & penalty\n✅ Garansi pekerjaan (minimal 90 hari)\n✅ Mekanisme penyelesaian sengketa\n\n🔐 **Di KerjaProyek:**\n• Kontrak digital terenkripsi\n• Tanda tangan elektronik\n• Milestone digenerate AI otomatis\n• Brain Project supervisi real-time`,
+    response: `**Kontrak Digital KerjaProyek** 📝\n\nKontrak konstruksi yang wajib memuat:\n\n✅ Identitas & legalitas kedua pihak\n✅ Deskripsi pekerjaan + spesifikasi material (SNI)\n✅ Nilai kontrak & jadwal pembayaran\n✅ Milestone & target penyelesaian\n✅ Sanksi keterlambatan & penalty\n✅ Garansi pekerjaan sesuai kesepakatan\n✅ Mekanisme penyelesaian sengketa\n\n🔐 **Di KerjaProyek:**\n• Kontrak digital terenkripsi\n• Tanda tangan elektronik\n• Milestone dibantu AI\n• Brain Project membantu supervisi`,
     links: [{ label: "Lihat Kontrak Saya", href: "/contracts" }, { label: "Brain Project", href: "/dashboard" }],
   },
   {
     keys: ["milestone", "dp berapa", "uang muka", "tahapan pembayaran", "bayar kapan"],
-    response: `**Panduan Milestone & Pembayaran** 💰\n\n**DP yang wajar:**\n• Konstruksi baru: maks 20-25%\n• Renovasi: maks 25-30%\n• Pekerjaan kecil: maks 30-40%\n\n⚠️ **DP >50% = Red Flag!**\n\n**Struktur milestone tipikal (Renovasi 4 tahap):**\n• DP/Mobilisasi: 25%\n• Pekerjaan struktur/kasar: 35%\n• Pekerjaan finishing: 30%\n• Retensi/serah terima: 10%\n\n🤖 AI KerjaProyek auto-generate milestone berbasis kategori & nilai kontrak.`,
+    response: `**Panduan Milestone & Pembayaran** 💰\n\nBesaran uang muka dan tahapan pembayaran sebaiknya disepakati berdasarkan ruang lingkup, kebutuhan material, progres pekerjaan, dan kemampuan kedua pihak.\n\n⚠️ Hindari uang muka yang terlalu besar sebelum pekerjaan dan perlindungan kontraknya jelas.\n\n**Struktur milestone yang baik:**\n• Hubungkan pembayaran dengan hasil kerja yang dapat diperiksa\n• Tetapkan bukti progres untuk setiap tahap\n• Cantumkan ketentuan serah terima dan retensi\n• Dokumentasikan setiap perubahan kesepakatan\n\n🤖 AI KerjaProyek membantu menyusun milestone berdasarkan kategori dan nilai kontrak.`,
     links: [{ label: "Lihat Kontrak", href: "/contracts" }, { label: "Apa itu Brain Project?", href: "/dashboard" }],
   },
   {
     keys: ["memilih tukang", "tips cari tukang", "cara pilih tukang", "tukang terpercaya"],
-    response: `**Tips Memilih Tukang/Mandor Terpercaya** 👷\n\n✅ **Lakukan:**\n• Cek portofolio & ulasan dari klien sebelumnya\n• Verifikasi sertifikasi SKK/KKNI & BNSP\n• Minta referensi proyek serupa\n• Bandingkan minimal 3 penawaran\n• Selalu buat kontrak sebelum mulai\n• Bayar per milestone, bukan langsung lunas\n\n❌ **Red Flags:**\n• Minta DP >50% sebelum mulai kerja\n• Menolak tanda tangan kontrak\n• Tidak bisa tunjukkan portfolio\n• Harga jauh di bawah rata-rata pasar\n\n💡 Di KerjaProyek: semua tukang terverifikasi, rating transparan, AI matching!`,
+    response: `**Tips Memilih Tukang/Mandor Terpercaya** 👷\n\n✅ **Lakukan:**\n• Cek portofolio & ulasan dari klien sebelumnya\n• Verifikasi sertifikasi SKK/KKNI & BNSP\n• Minta referensi proyek serupa\n• Bandingkan beberapa penawaran\n• Selalu buat kontrak sebelum mulai\n• Bayar berdasarkan milestone, bukan langsung lunas\n\n❌ **Red Flags:**\n• Meminta uang muka besar sebelum pekerjaan jelas\n• Menolak tanda tangan kontrak\n• Tidak bisa menunjukkan portofolio\n• Harga jauh di bawah kewajaran tanpa penjelasan\n\n💡 Di KerjaProyek, periksa status verifikasi, ulasan, dan kecocokan keahlian pada profil sebelum memilih.`,
     links: [{ label: "Cari Tukang Terverifikasi", href: "/experts" }, { label: "Sistem Keamanan Kontrak", href: "/contracts" }],
   },
   {
@@ -170,12 +170,12 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["profil tukang", "lengkapi profil", "sertifikasi bnsp", "kkni", "skk"],
-    response: `**Tips Profil Tukang yang Kuat** 👤\n\n**Wajib dilengkapi (memengaruhi AI match score):**\n📸 Foto profil profesional\n📝 Bio yang jelas & spesifik\n🔧 Keahlian teknis (pilih yang Anda kuasai)\n📍 Lokasi & area kerja\n🏅 Level KKNI (1-9)\n📜 Sertifikasi (BNSP, K3, SKT, SKA)\n🏗️ Portfolio 3+ proyek dengan foto\n\n💡 **Dampak profil lengkap:**\n• 3× lebih sering muncul di rekomendasi owner\n• AI match score lebih tinggi\n• Bisa menetapkan tarif lebih tinggi\n• Mendapat badge "Verified" di profil`,
+    response: `**Tips Profil Tukang yang Kuat** 👤\n\n**Sebaiknya dilengkapi agar mudah dipahami calon klien:**\n📸 Foto profil profesional\n📝 Bio yang jelas dan spesifik\n🔧 Keahlian teknis yang dikuasai\n📍 Lokasi dan area kerja\n🏅 Jenjang kompetensi KKNI\n📜 Sertifikasi yang relevan\n🏗️ Portofolio proyek dengan foto\n\n💡 **Manfaat profil lengkap:**\n• Membantu calon klien memahami kompetensi Anda\n• Memberi konteks yang lebih baik untuk rekomendasi AI\n• Memudahkan pembahasan ruang lingkup pekerjaan\n• Menampilkan status verifikasi pada profil`,
     links: [{ label: "Edit Profil Saya", href: "/profile/edit" }, { label: "Akses Bimtek", href: "/bimtek" }],
   },
   {
     keys: ["daftar", "register", "buat akun", "cara daftar", "biaya daftar", "gratis"],
-    response: `**Cara Daftar di KerjaProyek** 🆓\n\nPendaftaran **100% GRATIS** — tidak ada biaya apapun!\n\n**Langkah:**\n1. Klik "Daftar" di kanan atas\n2. Isi nama, email, password\n3. Pilih peran: **Owner/Boher** atau **Tukang/Mandor**\n4. Verifikasi email\n5. Lengkapi profil (untuk tukang: upload SKK/KKNI)\n\n**Demo akun tersedia:**\n• 👤 Pelanggan: budi@example.com / password123\n• 👷 Tukang: ahmad@example.com / password123`,
+    response: `**Cara Daftar di KerjaProyek** 🆓\n\nPendaftaran tersedia tanpa biaya pendaftaran.\n\n**Langkah:**\n1. Klik "Daftar" di kanan atas\n2. Isi nama, email, password\n3. Pilih peran: **Owner/Boher** atau **Tukang/Mandor**\n4. Verifikasi email\n5. Lengkapi profil (untuk tukang: upload SKK/KKNI)`,
     links: [{ label: "Daftar Sekarang", href: "/register" }, { label: "Masuk", href: "/login" }],
   },
   {
@@ -248,7 +248,7 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1, role: "assistant",
-      content: `Halo! Saya **AI Assistant KerjaProyek** 👷\n\nSaya memiliki 2 mode:\n🤖 **Multi-Agen AI** — pertanyaan teknis konstruksi (6 spesialis: Struktur, Arsitektur, MEP, K3, Manajemen, Material)\n📚 **Knowledge Base** — info harga, platform, fitur, dan tips\n\nKetik pertanyaan atau pilih kategori di bawah!`,
+      content: `Halo! Saya **AI Assistant KerjaProyek** 👷\n\nSaya membantu melalui dua pendekatan:\n🤖 **Dukungan AI** — pertanyaan teknis konstruksi dari sudut pandang Struktur, Arsitektur, MEP, K3, Manajemen, dan Material\n📚 **Knowledge Base** — info harga, platform, fitur, dan tips\n\nKetik pertanyaan atau pilih kategori di bawah!`,
       createdAt: new Date().toISOString(),
       actionLinks: FEATURE_LINKS,
     },
@@ -351,7 +351,7 @@ export default function ChatbotPage() {
           <h1 className="font-bold text-base">AI Assistant Konstruksi</h1>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <p className="text-xs text-muted-foreground">Multi-Agent AI · Knowledge Base · 6 Spesialis</p>
+            <p className="text-xs text-muted-foreground">Dukungan AI · Knowledge Base · Spesialis Konstruksi</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
