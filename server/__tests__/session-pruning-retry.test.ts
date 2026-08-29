@@ -120,6 +120,64 @@ describe("session pruning retry scheduler", () => {
     vi.useRealTimers();
   });
 
+  it("emits a new warning and recovery for a second incident after pruning recovers", () => {
+    vi.useFakeTimers();
+
+    const pruneSessions = vi
+      .fn()
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(new Error("database unavailable"));
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(new Error("database unavailable"));
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(new Error("database unavailable"));
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(null);
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(new Error("database unavailable"));
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(new Error("database unavailable"));
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(new Error("database unavailable"));
+      })
+      .mockImplementationOnce((callback: (error: Error | null) => void) => {
+        callback(null);
+      });
+    const onWarning = vi.fn();
+    const onRecovery = vi.fn();
+    const pruner = startSessionPruner(
+      { pruneSessions },
+      {
+        intervalMs: 1_000,
+        retryDelayMs: 100,
+        onWarning,
+        onRecovery,
+      },
+    );
+
+    vi.advanceTimersByTime(1_000 + 100 * 3);
+    expect(onWarning).toHaveBeenCalledTimes(1);
+    expect(onWarning).toHaveBeenCalledWith(expect.any(Error), 3);
+    expect(onRecovery).toHaveBeenCalledTimes(1);
+    expect(onRecovery).toHaveBeenCalledWith(3);
+
+    vi.advanceTimersByTime(1_000 + 100 * 3);
+    expect(pruneSessions).toHaveBeenCalledTimes(8);
+    expect(onWarning).toHaveBeenCalledTimes(2);
+    expect(onWarning).toHaveBeenNthCalledWith(2, expect.any(Error), 3);
+    expect(onRecovery).toHaveBeenCalledTimes(2);
+    expect(onRecovery).toHaveBeenNthCalledWith(2, 3);
+
+    pruner.stop();
+    vi.useRealTimers();
+  });
+
   it("does not schedule another attempt after being stopped", () => {
     vi.useFakeTimers();
 

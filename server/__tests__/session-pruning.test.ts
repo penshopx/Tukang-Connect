@@ -170,13 +170,17 @@ describe("PostgreSQL session pruning", () => {
     }
   });
 
-  it("emits one warning and one recovery for a sustained PGStore pruning outage", async () => {
-    const sustainedExpiredSid = `expired-sustained-${randomUUID()}`;
-    let failedPrunes = 0;
+  it("emits one warning and one recovery for each sustained PGStore pruning outage", async () => {
+    const firstIncidentExpiredSid = `expired-sustained-first-${randomUUID()}`;
+    const secondIncidentExpiredSid = `expired-sustained-second-${randomUUID()}`;
+    let deleteAttempts = 0;
     const flakyPool = {
       query(query: string, params?: unknown[]) {
-        if (query.startsWith("DELETE FROM") && failedPrunes < 3) {
-          failedPrunes += 1;
+        const isDelete = query.startsWith("DELETE FROM");
+        if (isDelete) deleteAttempts += 1;
+        const isFirstIncident = deleteAttempts <= 3;
+        const isSecondIncident = deleteAttempts >= 5 && deleteAttempts <= 7;
+        if (isDelete && (isFirstIncident || isSecondIncident)) {
           return Promise.reject(new Error("database unavailable"));
         }
 
@@ -190,7 +194,13 @@ describe("PostgreSQL session pruning", () => {
       pruneSessionInterval: false,
     });
 
-    await setSession(sustainedStore, sustainedExpiredSid, {
+    await setSession(sustainedStore, firstIncidentExpiredSid, {
+      cookie: {
+        originalMaxAge: null,
+        expires: new Date(Date.now() - 60_000),
+      } as session.Cookie,
+    });
+    await setSession(sustainedStore, secondIncidentExpiredSid, {
       cookie: {
         originalMaxAge: null,
         expires: new Date(Date.now() - 60_000),
@@ -198,22 +208,18 @@ describe("PostgreSQL session pruning", () => {
     });
 
     const incidentSignals: string[] = [];
-    let resolveWarning!: () => void;
-    let resolveRecovery!: () => void;
-    const warningObserved = new Promise<void>((resolve) => {
-      resolveWarning = resolve;
-    });
-    const recoveryObserved = new Promise<void>((resolve) => {
-      resolveRecovery = resolve;
+    let resolveIncidentsComplete!: () => void;
+    const incidentsComplete = new Promise<void>((resolve) => {
+      resolveIncidentsComplete = resolve;
     });
     const onError = vi.fn();
     const onWarning = vi.fn(() => {
       incidentSignals.push("warning");
-      resolveWarning();
+      if (incidentSignals.length === 4) resolveIncidentsComplete();
     });
     const onRecovery = vi.fn(() => {
       incidentSignals.push("recovery");
-      resolveRecovery();
+      if (incidentSignals.length === 4) resolveIncidentsComplete();
     });
     const pruner = startSessionPruner(sustainedStore, {
       intervalMs: 10,
@@ -224,25 +230,33 @@ describe("PostgreSQL session pruning", () => {
     });
 
     try {
-      await warningObserved;
-      expect(failedPrunes).toBe(3);
-      expect(onError).toHaveBeenCalledTimes(3);
-      expect(onWarning).toHaveBeenCalledTimes(1);
+      await incidentsComplete;
+      expect(deleteAttempts).toBe(8);
+      expect(onError).toHaveBeenCalledTimes(6);
+      expect(onWarning).toHaveBeenCalledTimes(2);
       expect(onWarning).toHaveBeenCalledWith(expect.any(Error), 3);
-      expect(onRecovery).not.toHaveBeenCalled();
-
-      await recoveryObserved;
-      expect(onError).toHaveBeenCalledTimes(3);
-      expect(onWarning).toHaveBeenCalledTimes(1);
-      expect(onRecovery).toHaveBeenCalledTimes(1);
+      expect(onWarning).toHaveBeenNthCalledWith(2, expect.any(Error), 3);
+      expect(onRecovery).toHaveBeenCalledTimes(2);
       expect(onRecovery).toHaveBeenCalledWith(3);
-      expect(incidentSignals).toEqual(["warning", "recovery"]);
+      expect(onRecovery).toHaveBeenNthCalledWith(2, 3);
+      expect(incidentSignals).toEqual([
+        "warning",
+        "recovery",
+        "warning",
+        "recovery",
+      ]);
 
-      const afterRecovery = await pool.query(
+      const afterFirstRecovery = await pool.query(
         `SELECT sid FROM "${tableName}" WHERE sid = $1`,
-        [sustainedExpiredSid],
+        [firstIncidentExpiredSid],
       );
-      expect(afterRecovery.rowCount).toBe(0);
+      expect(afterFirstRecovery.rowCount).toBe(0);
+
+      const afterSecondRecovery = await pool.query(
+        `SELECT sid FROM "${tableName}" WHERE sid = $1`,
+        [secondIncidentExpiredSid],
+      );
+      expect(afterSecondRecovery.rowCount).toBe(0);
     } finally {
       pruner.stop();
       await sustainedStore.close();
