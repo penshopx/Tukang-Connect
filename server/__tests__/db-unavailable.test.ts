@@ -341,6 +341,19 @@ describe("API routes when database is unreachable", () => {
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
     });
+
+    it("returns the unauthenticated response when the session account no longer exists", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
+
+      const res = await agent.get("/api/auth/user");
+
+      expect(res.status).toBe(401);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual({ error: "Not authenticated" });
+      expect(res.body).not.toHaveProperty("stack");
+      expect(res.body).not.toHaveProperty("message");
+    });
   });
 
   // ── GET /api/jobs ─────────────────────────────────────────────────────────
