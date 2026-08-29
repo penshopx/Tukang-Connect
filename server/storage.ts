@@ -347,7 +347,7 @@ async function seedDatabase() {
 
 // ─── Storage API ─────────────────────────────────────────────────────────────
 
-export const storage = {
+const storageApi = {
   // Users
   getUsers: async (): Promise<User[]> => {
     const r = await pool.query("SELECT * FROM users ORDER BY id");
@@ -810,6 +810,36 @@ export const storage = {
     };
   },
 };
+
+// Storage methods are the boundary between route/application code and the
+// database. Add stable metadata here so the global Express error handler can
+// distinguish a storage failure from an application bug without exposing the
+// database error details in an HTTP response.
+export class StorageError extends Error {
+  readonly source = "storage";
+  readonly cause: unknown;
+
+  constructor(operation: string, cause: unknown) {
+    super(`Storage operation failed: ${operation}`);
+    this.name = "StorageError";
+    this.cause = cause;
+  }
+}
+
+export const storage = new Proxy(storageApi, {
+  get(target, property, receiver) {
+    const value = Reflect.get(target, property, receiver);
+    if (typeof value !== "function") return value;
+
+    return (...args: any[]) =>
+      Promise.resolve()
+        .then(() => value.apply(target, args))
+        .catch((error) => {
+          if (error instanceof StorageError) throw error;
+          throw new StorageError(String(property), error);
+        });
+  },
+}) as typeof storageApi;
 
 // Run seed on startup
 // ─── Password migration ───────────────────────────────────────────────────────

@@ -13,7 +13,7 @@
  * needed for session management either.
  */
 
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 
 // ─── Simulated DB connection failure ─────────────────────────────────────────
@@ -133,6 +133,10 @@ describe("API routes when database is unreachable", () => {
     resetStorageMocks();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   // ── POST /api/login ───────────────────────────────────────────────────────
   // This route has its own try/catch and returns 503 with a localised message.
 
@@ -207,6 +211,31 @@ describe("API routes when database is unreachable", () => {
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
       expect(Object.keys(res.body).sort()).toEqual(["code", "error"]);
+    });
+
+    it("logs the route path and identifies database failures as storage errors", async () => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.mocked(storage.getJobs).mockRejectedValue(dbError);
+
+      await request(app).get("/api/jobs");
+
+      expect(errorLog).toHaveBeenCalledWith(
+        "[route] GET /api/jobs [storage] unhandled error",
+        dbError
+      );
+    });
+
+    it("labels non-database route failures as application errors", async () => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.mocked(storage.getJobs).mockResolvedValue([null as any]);
+      vi.mocked(storage.getUsers).mockResolvedValue([FAKE_USER as any]);
+
+      await request(app).get("/api/jobs");
+
+      expect(errorLog).toHaveBeenCalledWith(
+        "[route] GET /api/jobs [application] unhandled error",
+        expect.any(TypeError)
+      );
     });
   });
 

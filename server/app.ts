@@ -18,18 +18,27 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // ─── Async error propagation ──────────────────────────────────────────────────
-// Automatically wrap async route handlers so any rejected promise calls next(err)
-// instead of becoming an unhandled rejection that silently crashes the request.
+// Express 4 does not forward rejected promises from route handlers. Wrap every
+// route/middleware handler so async and synchronous failures reach the global
+// error handler instead of becoming unhandled promise rejections.
 const _routeMethods = ["get", "post", "put", "delete", "patch"] as const;
+const wrapRouteHandler = (handler: any) => {
+  // Error middleware has a different signature and is handled by Express.
+  if (handler.length === 4) return handler;
+
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    try {
+      Promise.resolve(handler(req, res, next)).catch(next);
+    } catch (err) {
+      next(err);
+    }
+  };
+};
+
 for (const method of _routeMethods) {
   const original = (app as any)[method].bind(app);
   (app as any)[method] = (path: any, ...handlers: any[]) => {
-    const wrapped = handlers.map((h: any) =>
-      typeof h === "function" && h.constructor.name === "AsyncFunction"
-        ? (req: express.Request, res: express.Response, next: express.NextFunction) =>
-            (h(req, res, next) as Promise<any>).catch(next)
-        : h
-    );
+    const wrapped = handlers.map((h: any) => typeof h === "function" ? wrapRouteHandler(h) : h);
     return original(path, ...wrapped);
   };
 }
@@ -1446,26 +1455,53 @@ if (isProd) {
 
 // ─── Global error handler ─────────────────────────────────────────────────────
 // Must be registered after all routes. Catches errors forwarded via next(err),
-// including DB connection failures propagated by the asyncHandler wrapper above.
-function isDatabaseError(err: any): boolean {
-  const code = err?.code;
-  if (
-    [
-      "57P01", "57P02", "57P03",
-      "08000", "08001", "08003", "08004", "08006", "08007", "08009",
-      "08046", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN",
-    ].includes(code)
-  ) {
-    return true;
+// including DB connection failures propagated by the route wrapper above.
+const DATABASE_ERROR_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EPIPE",
+  "57P01", // admin_shutdown
+  "57P02", // crash_shutdown
+  "57P03", // cannot_connect_now
+  "53300", // too_many_connections
+]);
+
+function isStorageOrDatabaseError(error: unknown): boolean {
+  let current: any = error;
+  const visited = new Set<unknown>();
+
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    if (current.source === "storage" || current.name === "StorageError") return true;
+
+    const code = typeof current.code === "string" ? current.code : "";
+    if (DATABASE_ERROR_CODES.has(code) || code.startsWith("08")) return true;
+
+    const message = String(current.message || "").toLowerCase();
+    if (/database|postgres|connection|pool|timeout expired|connect econn/.test(message)) return true;
+
+    current = current.cause;
   }
 
-  const message = String(err?.message || "").toLowerCase();
-  return /database|postgres|connection|pool|timeout expired|connect econn/.test(message);
+  return false;
 }
 
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[server] unhandled error:", err);
-  if (isDatabaseError(err)) {
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const isStorageError = isStorageOrDatabaseError(err);
+  const source = isStorageError ? "storage" : "application";
+  console.error(`[route] ${req.method} ${req.originalUrl} [${source}] unhandled error`, err);
+
+  // Delegate if another middleware already started the response. This keeps
+  // Express from attempting to write a second response while still recording
+  // the failure above.
+  if (res.headersSent) return next(err);
+
+  if (isStorageError) {
     return res.status(503).json({
       code: "DB_UNAVAILABLE",
       error: "Database sedang tidak dapat dijangkau. Silakan coba lagi sebentar.",
