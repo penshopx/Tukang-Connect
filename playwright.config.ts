@@ -1,7 +1,22 @@
 import { defineConfig } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 
 const baseURL = process.env.BASE_URL ?? "http://127.0.0.1:5000";
-const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+
+function resolveChromiumExecutable(): string | undefined {
+  const configuredPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim();
+  if (configuredPath) {
+    return configuredPath;
+  }
+
+  try {
+    return execFileSync("which", ["chromium"], { encoding: "utf8" }).trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const chromiumExecutablePath = resolveChromiumExecutable();
 
 export default defineConfig({
   testDir: "./client/e2e",

@@ -6,7 +6,7 @@ stack = "FULLSTACK_JS"
 
 [nix]
 channel = "stable-25_05"
-packages = ["chromium"]
+packages = ["chromium", "nss", "nspr", "atk", "at-spi2-atk", "cups", "dbus", "expat", "fontconfig", "freetype", "glib", "gtk3", "pango", "alsa-lib", "mesa", "libdrm", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXi", "xorg.libXrandr", "xorg.libXrender", "xorg.libXtst", "xorg.libXScrnSaver", "xorg.libxcb"]
 
 [workflows]
 runButton = "Project"
@@ -23,6 +23,10 @@ args = "Start application"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "browser-registration"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e"
 
 [[workflows.workflow]]
 name = "Start application"
@@ -46,6 +50,17 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(command -v chromium) npm run test:e2e -- client/e2e/register-password.spec.ts"
+
+[[workflows.workflow]]
+name = "e2e"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:e2e"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [[ports]]
 localPort = 3000
