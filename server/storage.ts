@@ -558,7 +558,11 @@ const storageApi = {
     );
     return applicationFromRow(r.rows[0]);
   },
-  updateApplication: async (id: number, data: Partial<JobApplication>): Promise<JobApplication | null> => {
+  updateApplication: async (
+    id: number,
+    data: Partial<JobApplication>,
+    expectedStatus?: JobApplication["status"]
+  ): Promise<JobApplication | null> => {
     const fields: string[] = [];
     const values: any[] = [];
     let i = 1;
@@ -570,8 +574,13 @@ const storageApi = {
     }
     if (!fields.length) return storage.getApplicationById(id).then(a => a ?? null);
     values.push(id);
+    let where = `id = $${i++}`;
+    if (expectedStatus !== undefined) {
+      values.push(expectedStatus);
+      where += ` AND status = $${i++}`;
+    }
     const r = await pool.query(
-      `UPDATE job_applications SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      `UPDATE job_applications SET ${fields.join(", ")} WHERE ${where} RETURNING *`,
       values
     );
     return r.rows[0] ? applicationFromRow(r.rows[0]) : null;

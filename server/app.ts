@@ -569,8 +569,78 @@ app.post("/api/jobs/:id/apply", requireAuth, async (req, res) => {
 });
 
 app.put("/api/applications/:id", requireAuth, async (req, res) => {
-  const updated = await storage.updateApplication(Number(req.params.id), req.body);
-  if (!updated) return res.status(404).json({ error: "Not found" });
+  const applicationId = Number(req.params.id);
+  const application = await storage.getApplicationById(applicationId);
+  if (!application) return res.status(404).json({ error: "Not found" });
+
+  const job = await storage.getJobById(application.jobId);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+
+  const user = await storage.getUserById(req.session.userId!);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const requestedFields = Object.keys(body);
+  let update: Record<string, unknown>;
+
+  if (user.role === "tukang") {
+    if (application.applicantId !== user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    if (application.status !== "pending") {
+      return res.status(400).json({ error: "Lamaran yang sudah diproses tidak dapat diubah" });
+    }
+
+    const unsupportedField = requestedFields.find(
+      (field) => !["message", "proposedBudget", "status"].includes(field)
+    );
+    if (unsupportedField) {
+      return res.status(400).json({ error: "Field lamaran tidak diizinkan" });
+    }
+    if ("status" in body && body.status !== "withdrawn") {
+      return res.status(400).json({ error: "Status lamaran tidak diizinkan" });
+    }
+    update = Object.fromEntries(
+      requestedFields.map((field) => [field, body[field]])
+    );
+  } else if (user.role === "pelanggan") {
+    if (job.clientId !== user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    if (application.status !== "pending") {
+      return res.status(400).json({ error: "Lamaran yang sudah diproses tidak dapat diubah" });
+    }
+    if (requestedFields.length !== 1 || body.status !== "rejected") {
+      return res.status(400).json({ error: "Klien hanya dapat menolak lamaran yang masih menunggu" });
+    }
+    update = { status: "rejected" };
+  } else if (user.role === "admin") {
+    // Admins may moderate application content, but acceptance must still go
+    // through the transaction-backed accept endpoint above.
+    const unsupportedField = requestedFields.find(
+      (field) => !["message", "proposedBudget", "status"].includes(field)
+    );
+    if (unsupportedField) {
+      return res.status(400).json({ error: "Field lamaran tidak diizinkan" });
+    }
+    if ("status" in body && !["rejected", "withdrawn"].includes(body.status)) {
+      return res.status(400).json({ error: "Status lamaran tidak diizinkan" });
+    }
+    update = Object.fromEntries(
+      requestedFields.map((field) => [field, body[field]])
+    );
+  } else {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  if (Object.keys(update).length === 0) {
+    return res.status(400).json({ error: "Tidak ada perubahan lamaran" });
+  }
+
+  const updated = await storage.updateApplication(applicationId, update, application.status);
+  if (!updated) {
+    return res.status(409).json({ error: "Lamaran telah berubah, silakan muat ulang" });
+  }
   res.json(updated);
 });
 
@@ -940,6 +1010,7 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
   if (job.clientId !== req.session.userId!) return res.status(403).json({ error: "Forbidden" });
   const application = await storage.getApplicationById(appId);
   if (!application) return res.status(404).json({ error: "Application not found" });
+  if (application.jobId !== jobId) return res.status(403).json({ error: "Forbidden" });
 
   const budget = application.proposedBudget || job.budget;
   const startDate = new Date().toISOString();

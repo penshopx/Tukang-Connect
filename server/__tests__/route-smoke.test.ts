@@ -23,6 +23,8 @@ vi.mock("../storage.js", () => ({
     getJobById: vi.fn(),
     updateJob: vi.fn(),
     getApplicationsByJob: vi.fn(),
+    getApplicationById: vi.fn(),
+    updateApplication: vi.fn(),
     createApplication: vi.fn(),
     createNotification: vi.fn(),
     getContracts: vi.fn(),
@@ -31,7 +33,7 @@ vi.mock("../storage.js", () => ({
   withTransaction: vi.fn(),
 }));
 
-import { pool, storage } from "../storage.js";
+import { pool, storage, withTransaction } from "../storage.js";
 import { app } from "../app.js";
 
 const PASSWORD_HASH =
@@ -102,6 +104,7 @@ function resetMocks() {
     if (typeof fn?.mockReset === "function") fn.mockReset();
   }
   vi.mocked(pool.query).mockReset();
+  vi.mocked(withTransaction).mockReset();
 }
 
 async function authenticatedAgent(user = OWNER) {
@@ -312,6 +315,177 @@ describe("Express route smoke tests", () => {
           expect(storage.createApplication).not.toHaveBeenCalled();
         }
       );
+
+      it("allows a worker to update their own pending application fields", async () => {
+        const pendingApplication = {
+          ...withdrawnApplication,
+          status: "pending",
+        };
+        const changes = {
+          message: "Pesan lamaran diperbarui",
+          proposedBudget: 95000000,
+        };
+        const updatedApplication = { ...pendingApplication, ...changes };
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(pendingApplication as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(WORKER as any);
+        vi.mocked(storage.updateApplication).mockResolvedValueOnce(updatedApplication as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.put(`/api/applications/${pendingApplication.id}`).send(changes);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(updatedApplication);
+        expect(storage.updateApplication).toHaveBeenCalledWith(
+          pendingApplication.id,
+          changes,
+          "pending"
+        );
+      });
+
+      it("forbids a worker from updating another worker's application", async () => {
+        const otherWorkerApplication = {
+          ...withdrawnApplication,
+          applicantId: 99,
+          status: "pending",
+        };
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(otherWorkerApplication as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(WORKER as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent
+          .put(`/api/applications/${otherWorkerApplication.id}`)
+          .send({ message: "Perubahan tidak sah" });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.updateApplication).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        [{ status: "accepted" }, "Status lamaran tidak diizinkan"],
+        [{ applicantId: WORKER.id }, "Field lamaran tidak diizinkan"],
+      ])(
+        "rejects application fields or statuses a worker is not allowed to change",
+        async (changes, error) => {
+          const pendingApplication = {
+            ...withdrawnApplication,
+            status: "pending",
+          };
+          vi.mocked(storage.getApplicationById).mockResolvedValueOnce(pendingApplication as any);
+          vi.mocked(storage.getUserById).mockResolvedValueOnce(WORKER as any);
+
+          const agent = await authenticatedAgent(WORKER);
+          const response = await agent
+            .put(`/api/applications/${pendingApplication.id}`)
+            .send(changes);
+
+          expect(response.status).toBe(400);
+          expect(response.body).toEqual({ error });
+          expect(storage.updateApplication).not.toHaveBeenCalled();
+        }
+      );
+
+      it("allows the project owner to reject a pending application", async () => {
+        const pendingApplication = {
+          ...withdrawnApplication,
+          status: "pending",
+        };
+        const updatedApplication = { ...pendingApplication, status: "rejected" };
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(pendingApplication as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
+        vi.mocked(storage.updateApplication).mockResolvedValueOnce(updatedApplication as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .put(`/api/applications/${pendingApplication.id}`)
+          .send({ status: "rejected" });
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(updatedApplication);
+        expect(storage.updateApplication).toHaveBeenCalledWith(
+          pendingApplication.id,
+          { status: "rejected" },
+          "pending"
+        );
+      });
+
+      it("forbids a client from updating an application on another client's job", async () => {
+        const otherClient = { ...OWNER, id: 14, email: "other-client@example.com" };
+        const applicationOnOtherJob = {
+          ...withdrawnApplication,
+          status: "pending",
+        };
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(applicationOnOtherJob as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(otherClient as any);
+
+        const agent = await authenticatedAgent(otherClient);
+        const response = await agent
+          .put(`/api/applications/${applicationOnOtherJob.id}`)
+          .send({ status: "rejected" });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.updateApplication).not.toHaveBeenCalled();
+      });
+
+      it("does not let a client accept an application through the generic update route", async () => {
+        const pendingApplication = {
+          ...withdrawnApplication,
+          status: "pending",
+        };
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(pendingApplication as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .put(`/api/applications/${pendingApplication.id}`)
+          .send({ status: "accepted" });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({
+          error: "Klien hanya dapat menolak lamaran yang masih menunggu",
+        });
+        expect(storage.updateApplication).not.toHaveBeenCalled();
+      });
+
+      it("does not let a client change application content", async () => {
+        const pendingApplication = {
+          ...withdrawnApplication,
+          status: "pending",
+        };
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(pendingApplication as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .put(`/api/applications/${pendingApplication.id}`)
+          .send({ message: "Diubah oleh klien" });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({
+          error: "Klien hanya dapat menolak lamaran yang masih menunggu",
+        });
+        expect(storage.updateApplication).not.toHaveBeenCalled();
+      });
+
+      it("forbids accepting an application that belongs to a different job", async () => {
+        const applicationOnAnotherJob = {
+          ...withdrawnApplication,
+          jobId: 99,
+          status: "pending",
+        };
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(applicationOnAnotherJob as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post(
+          `/api/jobs/${JOB.id}/applications/${applicationOnAnotherJob.id}/accept`
+        );
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(withTransaction).not.toHaveBeenCalled();
+      });
     });
   });
 
