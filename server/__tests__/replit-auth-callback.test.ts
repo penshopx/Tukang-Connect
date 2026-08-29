@@ -497,10 +497,11 @@ describe("Full post-OAuth onboarding flow: callback → role selection", () => {
 
     const roleRes = await agent.put("/api/users/me/role").send({ role: "tukang" });
 
-    // Must be non-200 so the client's onError handler fires (toast + re-enable button).
-    expect(roleRes.status).toBe(500);
+    // 503 identifies a temporary outage so the client can offer a safe retry.
+    expect(roleRes.status).toBe(503);
     expect(roleRes.headers["content-type"]).toMatch(/application\/json/);
     expect(roleRes.body).toHaveProperty("error");
+    expect(roleRes.body).toHaveProperty("code", "DB_UNAVAILABLE");
     expect(roleRes.body).not.toHaveProperty("stack");
 
     // The session is still valid — user is NOT locked out and can retry.

@@ -24,6 +24,10 @@ const dbError = Object.assign(
 );
 
 const DB_UNAVAILABLE_MESSAGE = "Layanan sedang tidak tersedia. Silakan coba lagi.";
+const GLOBAL_DB_UNAVAILABLE_RESPONSE = {
+  code: "DB_UNAVAILABLE",
+  error: "Database sedang tidak dapat dijangkau. Silakan coba lagi sebentar.",
+};
 
 // ─── Fake user for establishing an authenticated session ──────────────────────
 
@@ -183,16 +187,16 @@ describe("API routes when database is unreachable", () => {
 
   // ── GET /api/jobs ─────────────────────────────────────────────────────────
   // No try/catch in the route — the async wrapper propagates the error to the
-  // global handler which returns 500 { error: "Service temporarily unavailable" }.
+  // global handler which returns a retryable 503 DB_UNAVAILABLE response.
 
   describe("GET /api/jobs", () => {
-    it("returns HTTP 500 with { error: 'Service temporarily unavailable' } when the DB is down", async () => {
+    it("returns HTTP 503 with a retryable DB_UNAVAILABLE response when the DB is down", async () => {
       vi.mocked(storage.getJobs).mockRejectedValue(dbError);
 
       const res = await request(app).get("/api/jobs");
 
-      expect(res.status).toBe(500);
-      expect(res.body).toEqual({ error: "Service temporarily unavailable" });
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
     });
 
     it("does NOT expose a stack trace or raw Error fields in the response", async () => {
@@ -202,7 +206,7 @@ describe("API routes when database is unreachable", () => {
 
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
-      expect(Object.keys(res.body)).toEqual(["error"]);
+      expect(Object.keys(res.body).sort()).toEqual(["code", "error"]);
     });
   });
 
@@ -239,7 +243,7 @@ describe("API routes when database is unreachable", () => {
       return agent;
     }
 
-    it("returns HTTP 500 with { error: 'Service temporarily unavailable' } when the DB is down", async () => {
+    it("returns HTTP 503 with a retryable DB_UNAVAILABLE response when the DB is down", async () => {
       const agent = await authenticatedAgent();
 
       vi.mocked(storage.createContract).mockRejectedValue(dbError);
@@ -248,8 +252,8 @@ describe("API routes when database is unreachable", () => {
         .post("/api/contracts")
         .send(contractPayload);
 
-      expect(res.status).toBe(500);
-      expect(res.body).toEqual({ error: "Service temporarily unavailable" });
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
     });
 
     it("does NOT expose a stack trace or raw Error fields in the response", async () => {
@@ -263,7 +267,7 @@ describe("API routes when database is unreachable", () => {
 
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
-      expect(Object.keys(res.body)).toEqual(["error"]);
+      expect(Object.keys(res.body).sort()).toEqual(["code", "error"]);
     });
   });
 });

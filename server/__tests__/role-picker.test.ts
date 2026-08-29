@@ -328,7 +328,7 @@ describe("Role picker — PUT /api/users/me/role", () => {
   // destructive toast and re-enables the "Lanjut" button so the user can retry.
 
   describe("database error during role update", () => {
-    it("returns HTTP 500 (not 200) so the client knows the update failed", async () => {
+    it("returns HTTP 503 so the client knows the update failed temporarily", async () => {
       const agent = await authenticatedAgent(PELANGGAN_USER);
       vi.mocked(storage.updateUserRole).mockRejectedValueOnce(dbError);
 
@@ -336,7 +336,7 @@ describe("Role picker — PUT /api/users/me/role", () => {
         .put("/api/users/me/role")
         .send({ role: "tukang" });
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(503);
     });
 
     it("returns a structured JSON error body — never a raw stack trace", async () => {
