@@ -467,12 +467,11 @@ describe("API routes when database is unreachable", () => {
   });
 
   // ── POST /api/contracts ───────────────────────────────────────────────────
-  // Protected by requireAuth.  We establish a real session via POST /api/login
-  // (with a mock user that succeeds) then submit the contracts request with the
-  // session cookie so requireAuth passes and the DB error is exercised inside
-  // the actual route handler.
+  // Direct contract creation is intentionally disabled. Contracts are created
+  // transactionally through application acceptance, so this route never reaches
+  // the database after authentication.
 
-  describe("POST /api/contracts", () => {
+  describe("disabled POST /api/contracts", () => {
     const contractPayload = {
       jobId: 1,
       clientId: 1,
@@ -485,7 +484,7 @@ describe("API routes when database is unreachable", () => {
       workerSigned: false,
     };
 
-    it("returns HTTP 503 with a retryable DB_UNAVAILABLE response when the DB is down", async () => {
+    it("returns HTTP 405 without calling the database-backed creation method", async () => {
       const agent = await authenticatedAgent();
 
       vi.mocked(storage.createContract).mockRejectedValue(dbError);
@@ -494,8 +493,11 @@ describe("API routes when database is unreachable", () => {
         .post("/api/contracts")
         .send(contractPayload);
 
-      expect(res.status).toBe(503);
-      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+      expect(res.status).toBe(405);
+      expect(res.body).toEqual({
+        error: "Kontrak hanya dapat dibuat melalui penerimaan lamaran",
+      });
+      expect(storage.createContract).not.toHaveBeenCalled();
     });
 
     it("does NOT expose a stack trace or raw Error fields in the response", async () => {
@@ -509,7 +511,7 @@ describe("API routes when database is unreachable", () => {
 
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
-      expect(Object.keys(res.body).sort()).toEqual(["code", "error"]);
+      expect(Object.keys(res.body).sort()).toEqual(["error"]);
     });
   });
 });

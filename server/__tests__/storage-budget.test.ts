@@ -180,3 +180,24 @@ describe("storage monetary value normalization", () => {
     expect(typeof contracts[0]?.totalValue).toBe("number");
   });
 });
+
+describe("storage dispute visibility", () => {
+  beforeEach(async () => {
+    await startupReady;
+    vi.clearAllMocks();
+    poolMock.query.mockResolvedValue({ rows: [], rowCount: 0 });
+  });
+
+  it("lists disputes through contract participation rather than only the raiser", async () => {
+    await storage.getDisputes(CONTRACT_ROW.worker_id);
+
+    expect(poolMock.query).toHaveBeenCalledWith(
+      expect.stringContaining("JOIN contracts c ON c.id = d.contract_id"),
+      [CONTRACT_ROW.worker_id],
+    );
+    expect(poolMock.query).toHaveBeenCalledWith(
+      expect.stringContaining("c.client_id = $1 OR c.worker_id = $1"),
+      [CONTRACT_ROW.worker_id],
+    );
+  });
+});

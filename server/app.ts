@@ -47,6 +47,36 @@ const createJobSchema = z
     deadline: validDeadline.or(z.null()).optional(),
   })
   .strict();
+const createMilestoneSchema = z
+  .object({
+    title: nonBlankString,
+    description: nonBlankString,
+    amount: positiveMoney,
+    dueDate: validDeadline.or(z.null()).optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .strict();
+const createReportSchema = z
+  .object({
+    type: z.enum(["progress", "problem", "completion"]),
+    title: nonBlankString,
+    description: nonBlankString,
+  })
+  .strict();
+const updateContractSchema = z
+  .object({
+    title: nonBlankString,
+    description: nonBlankString,
+    totalValue: positiveMoney,
+    status: z.enum(["draft", "active", "completed", "disputed"]),
+    clientSigned: z.boolean(),
+    workerSigned: z.boolean(),
+    startDate: validDeadline.or(z.null()),
+    endDate: validDeadline.or(z.null()),
+  })
+  .strict()
+  .partial()
+  .refine((payload) => Object.keys(payload).length > 0);
 
 const app = express();
 
@@ -243,6 +273,71 @@ const requireAdmin = async (req: express.Request, res: express.Response, next: e
   if (user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
   next();
 };
+
+type ContractParty = "client" | "worker";
+
+function canAccessContract(
+  user: User,
+  contract: { clientId: number; workerId: number },
+  allowedParties: ContractParty[] = ["client", "worker"],
+): boolean {
+  if (user.role === "admin") return true;
+  if (allowedParties.includes("client") && contract.clientId === user.id) return true;
+  if (allowedParties.includes("worker") && contract.workerId === user.id) return true;
+  return false;
+}
+
+async function getAuthorizedContract(
+  req: express.Request,
+  res: express.Response,
+  contractId: number,
+  allowedParties: ContractParty[] = ["client", "worker"],
+) {
+  const contract = await storage.getContractById(contractId);
+  if (!contract) {
+    res.status(404).json({ error: "Not found" });
+    return null;
+  }
+  if (!canAccessContract(req.authenticatedUser!, contract, allowedParties)) {
+    res.status(403).json({ error: "Forbidden" });
+    return null;
+  }
+  return contract;
+}
+
+async function getAuthorizedMilestone(
+  req: express.Request,
+  res: express.Response,
+  milestoneId: number,
+  allowedParties: ContractParty[],
+) {
+  const milestone = await storage.getMilestoneById(milestoneId);
+  if (!milestone) {
+    res.status(404).json({ error: "Not found" });
+    return null;
+  }
+  const contract = await getAuthorizedContract(req, res, milestone.contractId, allowedParties);
+  if (!contract) return null;
+  return { milestone, contract };
+}
+
+async function getAuthorizedJob(
+  req: express.Request,
+  res: express.Response,
+  jobId: number,
+) {
+  const job = await storage.getJobById(jobId);
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return null;
+  }
+  const user = req.authenticatedUser!;
+  if (user.role !== "admin" && job.clientId !== user.id && job.workerId !== user.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return null;
+  }
+  return job;
+}
 
 // ─── Replit OAuth routes ──────────────────────────────────────────────────────
 
@@ -651,12 +746,25 @@ app.put("/api/jobs/:id", requireAuth, async (req, res) => {
 
 // Job Applications
 app.get("/api/jobs/:id/applications", requireAuth, async (req, res) => {
-  const [apps, users, profiles] = await Promise.all([
-    storage.getApplicationsByJob(Number(req.params.id)),
+  const job = await storage.getJobById(Number(req.params.id));
+  if (!job) return res.status(404).json({ error: "Job not found" });
+
+  const user = req.authenticatedUser!;
+  const apps = await storage.getApplicationsByJob(job.id);
+  const visibleApps =
+    user.role === "admin" || job.clientId === user.id
+      ? apps
+      : apps.filter((application) => application.applicantId === user.id);
+
+  if (visibleApps.length === 0 && user.role !== "admin" && job.clientId !== user.id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const [users, profiles] = await Promise.all([
     storage.getUsers(),
     storage.getProfiles(),
   ]);
-  const result = apps.map((a) => {
+  const result = visibleApps.map((a) => {
     const user = users.find((u) => u.id === a.applicantId);
     const profile = profiles.find((p) => p.userId === a.applicantId);
     return { ...a, applicant: user ? { id: user.id, fullName: user.fullName, profile } : null };
@@ -783,8 +891,10 @@ app.put("/api/applications/:id", requireAuth, async (req, res) => {
 
 // Job Messages
 app.get("/api/jobs/:jobId/messages", requireAuth, async (req, res) => {
+  const job = await getAuthorizedJob(req, res, Number(req.params.jobId));
+  if (!job) return;
   const [msgs, users] = await Promise.all([
-    storage.getMessagesByJob(Number(req.params.jobId)),
+    storage.getMessagesByJob(job.id),
     storage.getUsers(),
   ]);
   const result = msgs.map((m) => {
@@ -795,10 +905,16 @@ app.get("/api/jobs/:jobId/messages", requireAuth, async (req, res) => {
 });
 
 app.post("/api/jobs/:jobId/messages", requireAuth, async (req, res) => {
+  const job = await getAuthorizedJob(req, res, Number(req.params.jobId));
+  if (!job) return;
+  const parsedContent = nonBlankString.safeParse(req.body?.content);
+  if (!parsedContent.success) {
+    return res.status(400).json({ error: "Pesan tidak valid" });
+  }
   const msg = await storage.createMessage({
-    jobId: Number(req.params.jobId),
+    jobId: job.id,
     senderId: req.session.userId!,
-    content: req.body.content,
+    content: parsedContent.data,
   });
   res.status(201).json(msg);
 });
@@ -806,7 +922,9 @@ app.post("/api/jobs/:jobId/messages", requireAuth, async (req, res) => {
 // Contracts
 app.get("/api/contracts", requireAuth, async (req, res) => {
   const [contracts, users] = await Promise.all([
-    storage.getContracts(req.session.userId!),
+    req.authenticatedUser!.role === "admin"
+      ? storage.getAllContracts()
+      : storage.getContracts(req.session.userId!),
     storage.getUsers(),
   ]);
   const result = contracts.map((c) => {
@@ -822,8 +940,8 @@ app.get("/api/contracts", requireAuth, async (req, res) => {
 });
 
 app.get("/api/contracts/:id", requireAuth, async (req, res) => {
-  const contract = await storage.getContractById(Number(req.params.id));
-  if (!contract) return res.status(404).json({ error: "Not found" });
+  const contract = await getAuthorizedContract(req, res, Number(req.params.id));
+  if (!contract) return;
   const [milestones, reports, client, worker] = await Promise.all([
     storage.getMilestonesByContract(contract.id),
     storage.getReportsByContract(contract.id),
@@ -840,27 +958,19 @@ app.get("/api/contracts/:id", requireAuth, async (req, res) => {
 });
 
 app.post("/api/contracts", requireAuth, async (req, res) => {
-  const parsedTotalValue = positiveMoney.safeParse(req.body?.totalValue);
-  if (!parsedTotalValue.success) {
-    return res.status(400).json({ error: "Nilai kontrak tidak valid" });
-  }
-  const contract = await storage.createContract({
-    ...req.body,
-    totalValue: parsedTotalValue.data,
+  res.status(405).json({
+    error: "Kontrak hanya dapat dibuat melalui penerimaan lamaran",
   });
-  res.status(201).json(contract);
 });
 
-app.put("/api/contracts/:id", requireAuth, async (req, res) => {
-  let update = req.body && typeof req.body === "object" ? req.body : {};
-  if ("totalValue" in update) {
-    const parsedTotalValue = positiveMoney.safeParse(update.totalValue);
-    if (!parsedTotalValue.success) {
-      return res.status(400).json({ error: "Nilai kontrak tidak valid" });
-    }
-    update = { ...update, totalValue: parsedTotalValue.data };
+app.put("/api/contracts/:id", requireAdmin, async (req, res) => {
+  const contract = await storage.getContractById(Number(req.params.id));
+  if (!contract) return res.status(404).json({ error: "Not found" });
+  const parsedUpdate = updateContractSchema.safeParse(req.body);
+  if (!parsedUpdate.success) {
+    return res.status(400).json({ error: "Payload kontrak tidak valid" });
   }
-  const updated = await storage.updateContract(Number(req.params.id), update);
+  const updated = await storage.updateContract(contract.id, parsedUpdate.data);
   if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);
 });
@@ -879,46 +989,98 @@ app.post("/api/contracts/:id/sign", requireAuth, async (req, res) => {
 
 // Milestones
 app.post("/api/contracts/:contractId/milestones", requireAuth, async (req, res) => {
-  const parsedAmount = positiveMoney.safeParse(req.body?.amount);
-  if (!parsedAmount.success) {
-    return res.status(400).json({ error: "Nilai milestone tidak valid" });
+  const contract = await getAuthorizedContract(
+    req,
+    res,
+    Number(req.params.contractId),
+    ["client"],
+  );
+  if (!contract) return;
+  const parsedPayload = createMilestoneSchema.safeParse(req.body);
+  if (!parsedPayload.success) {
+    return res.status(400).json({ error: "Payload milestone tidak valid" });
   }
   const milestone = await storage.createMilestone({
-    ...req.body,
-    amount: parsedAmount.data,
-    contractId: Number(req.params.contractId),
+    title: parsedPayload.data.title,
+    description: parsedPayload.data.description,
+    amount: parsedPayload.data.amount,
+    dueDate: parsedPayload.data.dueDate ?? null,
+    notes: parsedPayload.data.notes ?? null,
+    contractId: contract.id,
+    status: "pending",
+    completedAt: null,
   });
   res.status(201).json(milestone);
 });
 
 app.put("/api/milestones/:id/submit", requireAuth, async (req, res) => {
-  const updated = await storage.updateMilestone(Number(req.params.id), { status: "submitted", notes: req.body.notes });
+  const authorized = await getAuthorizedMilestone(
+    req,
+    res,
+    Number(req.params.id),
+    ["worker"],
+  );
+  if (!authorized) return;
+  const updated = await storage.updateMilestone(authorized.milestone.id, {
+    status: "submitted",
+    notes: typeof req.body?.notes === "string" ? req.body.notes : null,
+  });
+  if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);
 });
 
 app.put("/api/milestones/:id/approve", requireAuth, async (req, res) => {
-  const updated = await storage.updateMilestone(Number(req.params.id), {
+  const authorized = await getAuthorizedMilestone(
+    req,
+    res,
+    Number(req.params.id),
+    ["client"],
+  );
+  if (!authorized) return;
+  const updated = await storage.updateMilestone(authorized.milestone.id, {
     status: "approved",
     completedAt: new Date().toISOString(),
   });
+  if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);
 });
 
 app.put("/api/milestones/:id/reject", requireAuth, async (req, res) => {
-  const updated = await storage.updateMilestone(Number(req.params.id), { status: "rejected", notes: req.body.notes });
+  const authorized = await getAuthorizedMilestone(
+    req,
+    res,
+    Number(req.params.id),
+    ["client"],
+  );
+  if (!authorized) return;
+  const updated = await storage.updateMilestone(authorized.milestone.id, {
+    status: "rejected",
+    notes: typeof req.body?.notes === "string" ? req.body.notes : null,
+  });
+  if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);
 });
 
 // Contract Reports
 app.get("/api/contracts/:contractId/reports", requireAuth, async (req, res) => {
-  const reports = await storage.getReportsByContract(Number(req.params.contractId));
+  const contract = await getAuthorizedContract(req, res, Number(req.params.contractId));
+  if (!contract) return;
+  const reports = await storage.getReportsByContract(contract.id);
   res.json(reports);
 });
 
 app.post("/api/contracts/:contractId/reports", requireAuth, async (req, res) => {
+  const contract = await getAuthorizedContract(req, res, Number(req.params.contractId));
+  if (!contract) return;
+  const parsedPayload = createReportSchema.safeParse(req.body);
+  if (!parsedPayload.success) {
+    return res.status(400).json({ error: "Payload laporan tidak valid" });
+  }
   const report = await storage.createReport({
-    ...req.body,
-    contractId: Number(req.params.contractId),
+    type: parsedPayload.data.type,
+    title: parsedPayload.data.title,
+    description: parsedPayload.data.description,
+    contractId: contract.id,
     reporterId: req.session.userId!,
     attachments: [],
   });
@@ -933,8 +1095,11 @@ app.get("/api/disputes", requireAuth, async (req, res) => {
 });
 
 app.post("/api/disputes", requireAuth, async (req, res) => {
+  const contract = await getAuthorizedContract(req, res, Number(req.body?.contractId));
+  if (!contract) return;
   const dispute = await storage.createDispute({
     ...req.body,
+    contractId: contract.id,
     raisedById: req.session.userId!,
     status: "open",
     resolution: null,

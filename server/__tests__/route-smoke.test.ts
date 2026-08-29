@@ -29,8 +29,21 @@ vi.mock("../storage.js", () => ({
     updateApplication: vi.fn(),
     createApplication: vi.fn(),
     createNotification: vi.fn(),
+    getAllContracts: vi.fn(),
     getContracts: vi.fn(),
+    getContractById: vi.fn(),
+    createContract: vi.fn(),
     updateContract: vi.fn(),
+    getMilestonesByContract: vi.fn(),
+    getMilestoneById: vi.fn(),
+    createMilestone: vi.fn(),
+    updateMilestone: vi.fn(),
+    getReportsByContract: vi.fn(),
+    createReport: vi.fn(),
+    getMessagesByJob: vi.fn(),
+    createMessage: vi.fn(),
+    getDisputes: vi.fn(),
+    createDispute: vi.fn(),
     getAnalytics: vi.fn(),
   },
   withTransaction: vi.fn(),
@@ -72,6 +85,14 @@ const WORKER = {
   fullName: "Route Worker",
 };
 
+const OTHER_WORKER = {
+  ...WORKER,
+  id: 14,
+  username: "other-route-worker",
+  email: "other-route-worker@example.com",
+  fullName: "Other Route Worker",
+};
+
 const JOB = {
   id: 21,
   title: "Renovasi rumah",
@@ -100,6 +121,18 @@ const CONTRACT = {
   createdAt: "2024-01-03T00:00:00.000Z",
   startDate: "2024-01-04T00:00:00.000Z",
   endDate: null,
+};
+
+const MILESTONE = {
+  id: 41,
+  contractId: CONTRACT.id,
+  title: "Pekerjaan awal",
+  description: "Persiapan dan mobilisasi",
+  amount: 10000000,
+  status: "in_progress",
+  dueDate: "2024-02-01T00:00:00.000Z",
+  completedAt: null,
+  notes: null,
 };
 
 function resetMocks() {
@@ -278,17 +311,349 @@ describe("Express route smoke tests", () => {
       ]);
       expect(response.body[0].totalValue).toEqual(expect.any(Number));
       expect(storage.getContracts).toHaveBeenCalledWith(OWNER.id);
+    });
 
-      vi.mocked(storage.updateContract).mockResolvedValueOnce(contractFromGet as any);
-      const updateResponse = await agent
-        .put(`/api/contracts/${contractFromGet.id}`)
-        .send({ totalValue: response.body[0].totalValue });
+    describe("resource ownership", () => {
+      it("only returns a worker's own application on another client's project", async () => {
+        const ownApplication = {
+          id: 51,
+          jobId: JOB.id,
+          applicantId: WORKER.id,
+          message: "Lamaran saya",
+          proposedBudget: 90000000,
+          status: "pending",
+          createdAt: "2024-01-05T00:00:00.000Z",
+        };
+        const otherApplication = { ...ownApplication, id: 52, applicantId: OTHER_WORKER.id };
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([
+          ownApplication,
+          otherApplication,
+        ] as any);
+        vi.mocked(storage.getUsers).mockResolvedValueOnce([WORKER, OTHER_WORKER] as any);
+        vi.mocked(storage.getProfiles).mockResolvedValueOnce([] as any);
 
-      expect(updateResponse.status).toBe(200);
-      expect(storage.updateContract).toHaveBeenCalledWith(
-        contractFromGet.id,
-        { totalValue: response.body[0].totalValue },
-      );
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.get(`/api/jobs/${JOB.id}/applications`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].id).toBe(ownApplication.id);
+        expect(response.body[0].applicantId).toBe(WORKER.id);
+      });
+
+      it("forbids an unrelated user from listing applications", async () => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([] as any);
+
+        const agent = await authenticatedAgent(OTHER_WORKER);
+        const response = await agent.get(`/api/jobs/${JOB.id}/applications`);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.getUsers).not.toHaveBeenCalled();
+        expect(storage.getProfiles).not.toHaveBeenCalled();
+      });
+
+      it("forbids an unrelated user from reading job messages", async () => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+
+        const agent = await authenticatedAgent(OTHER_WORKER);
+        const response = await agent.get(`/api/jobs/${JOB.id}/messages`);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.getMessagesByJob).not.toHaveBeenCalled();
+      });
+
+      it("forbids an unrelated user from posting job messages", async () => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+
+        const agent = await authenticatedAgent(OTHER_WORKER);
+        const response = await agent
+          .post(`/api/jobs/${JOB.id}/messages`)
+          .send({ content: "Pesan tidak sah" });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.createMessage).not.toHaveBeenCalled();
+      });
+
+      it("allows an assigned worker to read job messages", async () => {
+        const assignedJob = { ...JOB, workerId: WORKER.id, status: "in_progress" };
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(assignedJob as any);
+        vi.mocked(storage.getMessagesByJob).mockResolvedValueOnce([] as any);
+        vi.mocked(storage.getUsers).mockResolvedValueOnce([] as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.get(`/api/jobs/${JOB.id}/messages`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual([]);
+        expect(storage.getMessagesByJob).toHaveBeenCalledWith(JOB.id);
+      });
+
+      it("forbids an unrelated user before loading nested contract data", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(OTHER_WORKER);
+        const response = await agent.get(`/api/contracts/${CONTRACT.id}`);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.getMilestonesByContract).not.toHaveBeenCalled();
+        expect(storage.getReportsByContract).not.toHaveBeenCalled();
+      });
+
+      it("does not allow direct contract creation", async () => {
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post("/api/contracts").send({
+          jobId: JOB.id,
+          clientId: OTHER_WORKER.id,
+          workerId: OWNER.id,
+          totalValue: 50000000,
+          status: "completed",
+        });
+
+        expect(response.status).toBe(405);
+        expect(response.body).toEqual({
+          error: "Kontrak hanya dapat dibuat melalui penerimaan lamaran",
+        });
+        expect(storage.createContract).not.toHaveBeenCalled();
+      });
+
+      it("forbids non-admin users from the generic contract update route", async () => {
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .put(`/api/contracts/${CONTRACT.id}`)
+          .send({ totalValue: CONTRACT.totalValue });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.getContractById).not.toHaveBeenCalled();
+        expect(storage.updateContract).not.toHaveBeenCalled();
+      });
+
+      it("allows an admin to update validated contract fields", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.updateContract).mockResolvedValueOnce({
+          ...CONTRACT,
+          totalValue: 75000000,
+        } as any);
+
+        const agent = await authenticatedAgent(ADMIN);
+        const response = await agent
+          .put(`/api/contracts/${CONTRACT.id}`)
+          .send({ totalValue: 75000000 });
+
+        expect(response.status).toBe(200);
+        expect(storage.updateContract).toHaveBeenCalledWith(
+          CONTRACT.id,
+          { totalValue: 75000000 },
+        );
+      });
+
+      it("allows only the contract client to create a server-controlled milestone", async () => {
+        const payload = {
+          title: MILESTONE.title,
+          description: MILESTONE.description,
+          amount: MILESTONE.amount,
+          dueDate: MILESTONE.dueDate,
+        };
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.createMilestone).mockResolvedValueOnce(MILESTONE as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .post(`/api/contracts/${CONTRACT.id}/milestones`)
+          .send(payload);
+
+        expect(response.status).toBe(201);
+        expect(storage.createMilestone).toHaveBeenCalledWith({
+          ...payload,
+          notes: null,
+          contractId: CONTRACT.id,
+          status: "pending",
+          completedAt: null,
+        });
+      });
+
+      it("forbids a worker from creating a milestone", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent
+          .post(`/api/contracts/${CONTRACT.id}/milestones`)
+          .send({
+            title: MILESTONE.title,
+            description: MILESTONE.description,
+            amount: MILESTONE.amount,
+          });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.createMilestone).not.toHaveBeenCalled();
+      });
+
+      it("allows the worker to submit a milestone but forbids an unrelated user", async () => {
+        vi.mocked(storage.getMilestoneById)
+          .mockResolvedValueOnce(MILESTONE as any)
+          .mockResolvedValueOnce(MILESTONE as any);
+        vi.mocked(storage.getContractById)
+          .mockResolvedValueOnce(CONTRACT as any)
+          .mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.updateMilestone).mockResolvedValueOnce({
+          ...MILESTONE,
+          status: "submitted",
+        } as any);
+
+        const workerAgent = await authenticatedAgent(WORKER);
+        const allowed = await workerAgent
+          .put(`/api/milestones/${MILESTONE.id}/submit`)
+          .send({ notes: "Sudah selesai" });
+
+        expect(allowed.status).toBe(200);
+        expect(storage.updateMilestone).toHaveBeenCalledWith(MILESTONE.id, {
+          status: "submitted",
+          notes: "Sudah selesai",
+        });
+
+        const outsiderAgent = await authenticatedAgent(OTHER_WORKER);
+        const forbidden = await outsiderAgent
+          .put(`/api/milestones/${MILESTONE.id}/submit`)
+          .send({ notes: "Tidak sah" });
+
+        expect(forbidden.status).toBe(403);
+        expect(forbidden.body).toEqual({ error: "Forbidden" });
+        expect(storage.updateMilestone).toHaveBeenCalledTimes(1);
+      });
+
+      it("allows the client to approve a milestone but not the worker", async () => {
+        vi.mocked(storage.getMilestoneById)
+          .mockResolvedValueOnce(MILESTONE as any)
+          .mockResolvedValueOnce(MILESTONE as any);
+        vi.mocked(storage.getContractById)
+          .mockResolvedValueOnce(CONTRACT as any)
+          .mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.updateMilestone).mockResolvedValueOnce({
+          ...MILESTONE,
+          status: "approved",
+        } as any);
+
+        const clientAgent = await authenticatedAgent(OWNER);
+        const allowed = await clientAgent.put(`/api/milestones/${MILESTONE.id}/approve`);
+        expect(allowed.status).toBe(200);
+        expect(storage.updateMilestone).toHaveBeenCalledWith(MILESTONE.id, {
+          status: "approved",
+          completedAt: expect.any(String),
+        });
+
+        const workerAgent = await authenticatedAgent(WORKER);
+        const forbidden = await workerAgent.put(`/api/milestones/${MILESTONE.id}/approve`);
+        expect(forbidden.status).toBe(403);
+        expect(storage.updateMilestone).toHaveBeenCalledTimes(1);
+      });
+
+      it("forbids an unrelated user from contract reports", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(OTHER_WORKER);
+        const response = await agent.get(`/api/contracts/${CONTRACT.id}/reports`);
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.getReportsByContract).not.toHaveBeenCalled();
+      });
+
+      it("allows a contract participant to create a validated report", async () => {
+        const payload = {
+          type: "progress",
+          title: "Laporan pekan pertama",
+          description: "Pekerjaan sesuai rencana",
+        };
+        const report = {
+          id: 61,
+          contractId: CONTRACT.id,
+          reporterId: WORKER.id,
+          ...payload,
+          attachments: [],
+          createdAt: "2024-01-06T00:00:00.000Z",
+        };
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.createReport).mockResolvedValueOnce(report as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent
+          .post(`/api/contracts/${CONTRACT.id}/reports`)
+          .send({ ...payload, reporterId: OWNER.id, attachments: ["forged"] });
+
+        expect(response.status).toBe(400);
+        expect(storage.createReport).not.toHaveBeenCalled();
+
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        const validResponse = await agent
+          .post(`/api/contracts/${CONTRACT.id}/reports`)
+          .send(payload);
+
+        expect(validResponse.status).toBe(201);
+        expect(storage.createReport).toHaveBeenCalledWith({
+          ...payload,
+          contractId: CONTRACT.id,
+          reporterId: WORKER.id,
+          attachments: [],
+        });
+      });
+
+      it("forbids an unrelated user from opening a dispute on another contract", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(OTHER_WORKER);
+        const response = await agent.post("/api/disputes").send({
+          contractId: CONTRACT.id,
+          reason: "Percobaan sengketa tidak sah",
+          status: "resolved",
+          raisedById: OWNER.id,
+        });
+
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.createDispute).not.toHaveBeenCalled();
+      });
+
+      it("uses server-controlled dispute ownership and lifecycle fields", async () => {
+        const dispute = {
+          id: 71,
+          contractId: CONTRACT.id,
+          raisedById: WORKER.id,
+          reason: "Masalah pembayaran milestone",
+          status: "open",
+          resolution: null,
+          resolvedAt: null,
+          createdAt: "2024-01-07T00:00:00.000Z",
+        };
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.createDispute).mockResolvedValueOnce(dispute as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.post("/api/disputes").send({
+          contractId: CONTRACT.id,
+          reason: dispute.reason,
+          status: "resolved",
+          raisedById: OWNER.id,
+          resolution: "Dipalsukan",
+          resolvedAt: "2024-01-01T00:00:00.000Z",
+        });
+
+        expect(response.status).toBe(201);
+        expect(storage.createDispute).toHaveBeenCalledWith({
+          contractId: CONTRACT.id,
+          reason: dispute.reason,
+          status: "open",
+          raisedById: WORKER.id,
+          resolution: null,
+          resolvedAt: null,
+        });
+      });
     });
 
     describe("job mutations", () => {

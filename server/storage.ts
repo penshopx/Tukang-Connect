@@ -703,7 +703,14 @@ const storageApi = {
   // Disputes
   getDisputes: async (userId?: number): Promise<Dispute[]> => {
     if (userId !== undefined) {
-      const r = await pool.query("SELECT * FROM disputes WHERE raised_by_id = $1 ORDER BY id", [userId]);
+      const r = await pool.query(
+        `SELECT d.*
+         FROM disputes d
+         JOIN contracts c ON c.id = d.contract_id
+         WHERE c.client_id = $1 OR c.worker_id = $1
+         ORDER BY d.id`,
+        [userId],
+      );
       return r.rows.map(disputeFromRow);
     }
     const r = await pool.query("SELECT * FROM disputes ORDER BY id");
