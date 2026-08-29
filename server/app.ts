@@ -32,6 +32,16 @@ const updateJobSchema = z
   .strict()
   .partial()
   .refine((payload) => Object.keys(payload).length > 0);
+const createJobSchema = z
+  .object({
+    title: nonBlankString,
+    description: nonBlankString,
+    category: nonBlankString,
+    budget: z.number().finite().positive(),
+    location: nonBlankString,
+    deadline: validDeadline.or(z.null()).optional(),
+  })
+  .strict();
 
 const app = express();
 
@@ -546,8 +556,17 @@ app.get("/api/jobs/:id", async (req, res) => {
 
 app.post("/api/jobs", requireAuth, async (req, res) => {
   const user = req.authenticatedUser!;
+  const parsedPayload = createJobSchema.safeParse(req.body);
+  if (!parsedPayload.success) {
+    return res.status(400).json({ error: "Payload proyek tidak valid" });
+  }
   const job = await storage.createJob({
-    ...req.body,
+    title: parsedPayload.data.title,
+    description: parsedPayload.data.description,
+    category: parsedPayload.data.category,
+    budget: parsedPayload.data.budget,
+    location: parsedPayload.data.location,
+    deadline: parsedPayload.data.deadline ?? null,
     clientId: user.id,
     status: "open",
     workerId: null,

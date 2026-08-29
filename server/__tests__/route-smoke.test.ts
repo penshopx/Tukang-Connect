@@ -21,6 +21,7 @@ vi.mock("../storage.js", () => ({
     getJobs: vi.fn(),
     getUsers: vi.fn(),
     getJobById: vi.fn(),
+    createJob: vi.fn(),
     updateJob: vi.fn(),
     getApplicationsByJob: vi.fn(),
     getApplicationById: vi.fn(),
@@ -225,11 +226,79 @@ describe("Express route smoke tests", () => {
     });
 
     describe("job mutations", () => {
+      const newJobPayload = {
+        title: "Bangun rumah baru",
+        description: "Pembangunan rumah satu lantai",
+        category: "Konstruksi Baru",
+        budget: 250000000,
+        location: "Bandung",
+        deadline: "2025-06-01",
+      };
+      const createdJob = {
+        ...JOB,
+        ...newJobPayload,
+      };
       const changes = {
         title: "Renovasi rumah diperbarui",
         budget: 125000000,
       };
       const updatedJob = { ...JOB, ...changes };
+
+      it("creates a project from validated user-editable fields", async () => {
+        vi.mocked(storage.createJob).mockResolvedValueOnce(createdJob as any);
+        vi.mocked(storage.createNotification).mockResolvedValueOnce(undefined as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post("/api/jobs").send(newJobPayload);
+
+        expect(response.status).toBe(201);
+        expect(response.body).toEqual(createdJob);
+        expect(storage.createJob).toHaveBeenCalledWith({
+          ...newJobPayload,
+          clientId: OWNER.id,
+          status: "open",
+          workerId: null,
+        });
+        expect(storage.createJob).toHaveBeenCalledOnce();
+      });
+
+      it("uses server-controlled values and defaults an omitted deadline", async () => {
+        const { deadline: _deadline, ...payloadWithoutDeadline } = newJobPayload;
+        const createdJobWithoutDeadline = { ...createdJob, deadline: null };
+        vi.mocked(storage.createJob).mockResolvedValueOnce(createdJobWithoutDeadline as any);
+        vi.mocked(storage.createNotification).mockResolvedValueOnce(undefined as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post("/api/jobs").send(payloadWithoutDeadline);
+
+        expect(response.status).toBe(201);
+        expect(storage.createJob).toHaveBeenCalledWith({
+          ...payloadWithoutDeadline,
+          deadline: null,
+          clientId: OWNER.id,
+          status: "open",
+          workerId: null,
+        });
+      });
+
+      it.each([
+        { payload: {}, label: "rejects missing required fields" },
+        { payload: { ...newJobPayload, title: "   " }, label: "rejects blank required values" },
+        { payload: { ...newJobPayload, budget: "250000000" }, label: "rejects values with the wrong type" },
+        { payload: { ...newJobPayload, deadline: "not-a-date" }, label: "rejects invalid deadline values" },
+        {
+          payload: { ...newJobPayload, status: "completed" },
+          label: "rejects fields controlled by the server",
+        },
+      ])("$label", async ({ payload }) => {
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post("/api/jobs").send(payload);
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "Payload proyek tidak valid" });
+        expect(storage.createJob).not.toHaveBeenCalled();
+        expect(storage.createNotification).not.toHaveBeenCalled();
+      });
 
       it("allows the project owner to update their own job", async () => {
         vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
