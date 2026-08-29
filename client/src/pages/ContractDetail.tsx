@@ -58,8 +58,14 @@ export default function ContractDetail() {
   const progress = totalMilestones > 0 ? (completedMilestones / totalMilestones) * 100 : 0;
   const earnedValue = addMoney(...milestones.filter((m) => m.status === "approved").map((m: any) => m.amount));
   const pendingValue = addMoney(...milestones.filter((m) => m.status !== "approved").map((m: any) => m.amount));
-  const allDone = totalMilestones > 0 && milestones.every((m) => m.status === "approved" || m.status === "rejected");
-  const canComplete = isClient && contract.status === "active" && (totalMilestones === 0 || allDone);
+  const incompleteMilestones = milestones.filter((m) => m.status !== "approved");
+  const blockedStatusLabels = [...new Set(
+    incompleteMilestones.map((m) => MILESTONE_STATUS_CONFIG[m.status]?.label || m.status)
+  )].join(", ");
+  const completionBlockReason = incompleteMilestones.length > 0
+    ? `Kontrak belum dapat diselesaikan: ${incompleteMilestones.length} milestone belum disetujui (${blockedStatusLabels}).`
+    : null;
+  const canComplete = isClient && contract.status === "active" && incompleteMilestones.length === 0;
 
   const handleSign = () => {
     signContract(id, {
@@ -419,7 +425,7 @@ export default function ContractDetail() {
 
               {contract.status === "active" && isClient && !canComplete && totalMilestones > 0 && (
                 <div className="p-3 bg-blue-50 rounded-xl text-blue-700 text-xs mb-2">
-                  Selesaikan semua milestone untuk dapat menyelesaikan kontrak ({completedMilestones}/{totalMilestones} selesai)
+                  {completionBlockReason} ({completedMilestones}/{totalMilestones} disetujui)
                 </div>
               )}
 

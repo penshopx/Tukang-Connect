@@ -1602,10 +1602,11 @@ app.post("/api/contracts/:id/complete", requireAuth, async (req, res) => {
   }
 
   const milestones = await storage.getMilestonesByContract(contractId);
-  const pendingCount = milestones.filter((m) => m.status !== "approved" && m.status !== "rejected").length;
-  if (milestones.length > 0 && pendingCount > 0) {
-    return res.status(400).json({
-      error: `Masih ada ${pendingCount} milestone yang belum diselesaikan. Selesaikan semua milestone terlebih dahulu.`,
+  const incompleteMilestones = milestones.filter((m) => m.status !== "approved");
+  if (incompleteMilestones.length > 0) {
+    const blockedStatuses = [...new Set(incompleteMilestones.map((m) => m.status))].join(", ");
+    return res.status(409).json({
+      error: `Kontrak belum dapat diselesaikan: ${incompleteMilestones.length} milestone belum berstatus approved (${blockedStatuses}). Setujui semua milestone terlebih dahulu.`,
     });
   }
 

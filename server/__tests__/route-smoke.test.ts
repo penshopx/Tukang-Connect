@@ -604,6 +604,50 @@ describe("Express route smoke tests", () => {
         expect(storage.updateContract).not.toHaveBeenCalled();
       });
 
+      it.each(["pending", "in_progress", "submitted", "rejected"] as const)(
+        "blocks contract completion when a milestone is %s",
+        async (status) => {
+          vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+          vi.mocked(storage.getMilestonesByContract).mockResolvedValueOnce([
+            { ...MILESTONE, status },
+          ] as any);
+
+          const agent = await authenticatedAgent(OWNER);
+          const response = await agent.post(`/api/contracts/${CONTRACT.id}/complete`);
+
+          expect(response.status).toBe(409);
+          expect(response.body.error).toContain("Kontrak belum dapat diselesaikan");
+          expect(response.body.error).toContain(status);
+          expect(withTransaction).not.toHaveBeenCalled();
+          expect(storage.createNotification).not.toHaveBeenCalled();
+        },
+      );
+
+      it("completes a contract only when every milestone is approved", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.getMilestonesByContract).mockResolvedValueOnce([
+          { ...MILESTONE, status: "approved" },
+          { ...MILESTONE, id: MILESTONE.id + 1, status: "approved" },
+        ] as any);
+        const transactionClient = {
+          query: vi.fn()
+            .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: CONTRACT.id }] })
+            .mockResolvedValue({ rowCount: 1, rows: [] }),
+        };
+        vi.mocked(withTransaction).mockImplementation(async (callback: any) => callback(transactionClient));
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post(`/api/contracts/${CONTRACT.id}/complete`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toMatchObject({ success: true, contractId: CONTRACT.id });
+        expect(transactionClient.query).toHaveBeenCalledWith(
+          expect.stringContaining("UPDATE contracts SET status = 'completed'"),
+          expect.any(Array),
+        );
+        expect(storage.createNotification).toHaveBeenCalledTimes(2);
+      });
+
       it.each([
         { status: "completed" },
         { clientSigned: true },
