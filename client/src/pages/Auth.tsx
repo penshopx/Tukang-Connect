@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { HardHat, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,9 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
     role: "pelanggan",
   });
 
-  // Show error from OAuth callback if present
-  if (typeof window !== "undefined") {
+  // Show OAuth callback errors after render so the toast store is not updated
+  // while React is rendering this page.
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const errorParam = params.get("error");
     if (errorParam === "auth_failed") {
@@ -39,7 +40,7 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
       toast({ title: "Layanan Tidak Tersedia", description: "Database sedang tidak dapat dijangkau. Silakan tunggu sebentar dan coba lagi.", variant: "destructive" });
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }
+  }, [toast]);
 
   const { mutate: login, isPending: loggingIn } = useLogin();
   const { mutate: register, isPending: registering } = useRegister();
@@ -117,6 +118,8 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
                   <div>
                     <label className="text-sm font-medium mb-1 block">Nama Lengkap</label>
                     <Input
+                      name="name"
+                      autoComplete="name"
                       placeholder="John Doe"
                       value={form.fullName}
                       onChange={(e) => update("fullName", e.target.value)}
@@ -126,6 +129,8 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
                   <div>
                     <label className="text-sm font-medium mb-1 block">Username</label>
                     <Input
+                      name="username"
+                      autoComplete="username"
                       placeholder="username123"
                       value={form.username}
                       onChange={(e) => update("username", e.target.value)}
@@ -138,6 +143,8 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
               <div>
                 <label className="text-sm font-medium mb-1 block">Email</label>
                 <Input
+                  name="email"
+                  autoComplete="email"
                   type="email"
                   placeholder="email@contoh.com"
                   value={form.email}
@@ -150,6 +157,8 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
                 <label className="text-sm font-medium mb-1 block">Password</label>
                 <div className="relative">
                   <Input
+                    name="password"
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
                     type={showPass ? "text" : "password"}
                     placeholder="••••••••"
                     value={form.password}

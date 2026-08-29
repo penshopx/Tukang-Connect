@@ -52,7 +52,10 @@ let oidcClient = null;
 async function getOidcClient() {
     if (oidcClient)
         return oidcClient;
-    const issuer = await Issuer.discover("https://replit.com/auth/v2");
+    // The testing environment overrides ISSUER_URL with a local OIDC provider.
+    // Production falls back to Replit's standard OpenID Connect issuer.
+    const issuerUrl = process.env.ISSUER_URL ?? "https://replit.com/oidc";
+    const issuer = await Issuer.discover(issuerUrl);
     const client = new issuer.Client({
         client_id: process.env.REPL_ID,
         client_secret: "noop", // not used with PKCE
