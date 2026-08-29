@@ -98,6 +98,27 @@ export function useCompleteOnboarding() {
   });
 }
 
+export function useDisconnectReplit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/auth/replit/link");
+      return res.json();
+    },
+    onSuccess: (result) => {
+      const clearReplitId = (current: any) =>
+        current ? { ...current, replitId: result?.replitId ?? null } : current;
+
+      // Update both cached user shapes immediately, then revalidate them from
+      // the server so the connected-account card cannot remain stale.
+      qc.setQueryData(["/api/me"], clearReplitId);
+      qc.setQueryData(["/api/auth/user"], clearReplitId);
+      qc.invalidateQueries({ queryKey: ["/api/me"] });
+      qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
+}
+
 export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({

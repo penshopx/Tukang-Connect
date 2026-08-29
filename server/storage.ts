@@ -377,7 +377,7 @@ const storageApi = {
     );
     return userFromRow(r.rows[0]);
   },
-  updateUserReplitId: async (userId: number, replitId: string): Promise<void> => {
+  updateUserReplitId: async (userId: number, replitId: string | null): Promise<void> => {
     await pool.query("UPDATE users SET replit_id = $1 WHERE id = $2", [replitId, userId]);
   },
   updateUserRole: async (userId: number, role: string): Promise<number> => {

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Save, User, Link2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { Save, User, Link2, Unlink2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useProfile, useUpdateProfile, useUpdateRole } from "@/hooks/useUser";
+import { useProfile, useUpdateProfile, useUpdateRole, useDisconnectReplit } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
 import { SKILLS_LIST, KKNI_LEVELS, JOB_CATEGORIES } from "@/lib/constants";
 
@@ -16,6 +16,7 @@ export default function ProfileEdit() {
   const { data: profile, refetch: refetchProfile } = useProfile();
   const { mutate: updateProfile, isPending } = useUpdateProfile();
   const { mutate: updateRole, isPending: isRolePending } = useUpdateRole();
+  const { mutate: disconnectReplit, isPending: isDisconnectPending } = useDisconnectReplit();
   const { toast } = useToast();
   const [showRoleConfirm, setShowRoleConfirm] = useState(false);
 
@@ -105,6 +106,20 @@ export default function ProfileEdit() {
       },
       onError: (err) => {
         toast({ title: "Gagal", description: err.message, variant: "destructive" });
+      },
+    });
+  };
+
+  const handleDisconnectReplit = () => {
+    disconnectReplit(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Akun Replit diputuskan",
+          description: "Akun Replit sudah tidak terhubung dengan profil Anda.",
+        });
+      },
+      onError: (err) => {
+        toast({ title: "Gagal memutuskan akun", description: err.message, variant: "destructive" });
       },
     });
   };
@@ -353,7 +368,27 @@ export default function ProfileEdit() {
                   )}
                 </div>
               </div>
-              {!profile?.replitId && (
+              {profile?.replitId ? (
+                <div className="flex flex-col items-end gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 shrink-0"
+                    onClick={handleDisconnectReplit}
+                    disabled={isDisconnectPending || profile.hasPassword === false}
+                    title={profile.hasPassword === false ? "Tetapkan password terlebih dahulu" : undefined}
+                  >
+                    <Unlink2 className="h-4 w-4" />
+                    {isDisconnectPending ? "Memutuskan..." : "Putuskan"}
+                  </Button>
+                  {profile.hasPassword === false && (
+                    <span className="text-[11px] text-muted-foreground text-right max-w-[180px]">
+                      Tetapkan password terlebih dahulu
+                    </span>
+                  )}
+                </div>
+              ) : (
                 <Button
                   type="button"
                   variant="outline"

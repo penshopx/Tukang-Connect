@@ -375,7 +375,23 @@ app.get("/api/me", requireAuth, async (req, res) => {
   if (!user) return res.status(404).json({ error: "Not found" });
   const profile = await storage.getProfileByUserId(user.id);
   const { password: _, ...safeUser } = user;
-  res.json({ ...safeUser, profile });
+  res.json({ ...safeUser, hasPassword: Boolean(user.password?.trim()), profile });
+});
+
+app.delete("/api/auth/replit/link", requireAuth, async (req, res) => {
+  const user = await storage.getUserById(req.session.userId!);
+  if (!user) return res.status(404).json({ error: "Not found" });
+  if (!user.replitId) {
+    return res.status(400).json({ error: "Akun Replit belum terhubung." });
+  }
+  if (!user.password?.trim()) {
+    return res.status(400).json({
+      error: "Tetapkan password terlebih dahulu sebelum memutuskan akun Replit.",
+    });
+  }
+
+  await storage.updateUserReplitId(user.id, null);
+  res.json({ success: true, replitId: null });
 });
 
 // Profiles
