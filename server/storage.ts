@@ -666,7 +666,11 @@ const storageApi = {
     );
     return milestoneFromRow(r.rows[0]);
   },
-  updateMilestone: async (id: number, data: Partial<Milestone>): Promise<Milestone | null> => {
+  updateMilestone: async (
+    id: number,
+    data: Partial<Milestone>,
+    expectedStatuses?: Milestone["status"][],
+  ): Promise<Milestone | null> => {
     const fields: string[] = [];
     const values: any[] = [];
     let i = 1;
@@ -679,8 +683,13 @@ const storageApi = {
     }
     if (!fields.length) return storage.getMilestoneById(id).then(m => m ?? null);
     values.push(id);
+    let where = `id = $${i++}`;
+    if (expectedStatuses?.length) {
+      values.push(expectedStatuses);
+      where += ` AND status = ANY($${i++}::text[])`;
+    }
     const r = await pool.query(
-      `UPDATE milestones SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
+      `UPDATE milestones SET ${fields.join(", ")} WHERE ${where} RETURNING *`,
       values
     );
     return r.rows[0] ? milestoneFromRow(r.rows[0]) : null;

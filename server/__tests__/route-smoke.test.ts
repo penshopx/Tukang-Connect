@@ -314,32 +314,17 @@ describe("Express route smoke tests", () => {
     });
 
     describe("resource ownership", () => {
-      it("only returns a worker's own application on another client's project", async () => {
-        const ownApplication = {
-          id: 51,
-          jobId: JOB.id,
-          applicantId: WORKER.id,
-          message: "Lamaran saya",
-          proposedBudget: 90000000,
-          status: "pending",
-          createdAt: "2024-01-05T00:00:00.000Z",
-        };
-        const otherApplication = { ...ownApplication, id: 52, applicantId: OTHER_WORKER.id };
+      it("forbids a worker from listing applications on another client's project", async () => {
         vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
-        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([
-          ownApplication,
-          otherApplication,
-        ] as any);
-        vi.mocked(storage.getUsers).mockResolvedValueOnce([WORKER, OTHER_WORKER] as any);
-        vi.mocked(storage.getProfiles).mockResolvedValueOnce([] as any);
 
         const agent = await authenticatedAgent(WORKER);
         const response = await agent.get(`/api/jobs/${JOB.id}/applications`);
 
-        expect(response.status).toBe(200);
-        expect(response.body).toHaveLength(1);
-        expect(response.body[0].id).toBe(ownApplication.id);
-        expect(response.body[0].applicantId).toBe(WORKER.id);
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ error: "Forbidden" });
+        expect(storage.getApplicationsByJob).not.toHaveBeenCalled();
+        expect(storage.getUsers).not.toHaveBeenCalled();
+        expect(storage.getProfiles).not.toHaveBeenCalled();
       });
 
       it("forbids an unrelated user from listing applications", async () => {
@@ -422,15 +407,51 @@ describe("Express route smoke tests", () => {
         expect(storage.createContract).not.toHaveBeenCalled();
       });
 
-      it("forbids non-admin users from the generic contract update route", async () => {
+      it("allows the contract client to update safe contract terms", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.updateContract).mockResolvedValueOnce({
+          ...CONTRACT,
+          totalValue: 60000000,
+        } as any);
+
         const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .put(`/api/contracts/${CONTRACT.id}`)
+          .send({ totalValue: 60000000 });
+
+        expect(response.status).toBe(200);
+        expect(storage.updateContract).toHaveBeenCalledWith(CONTRACT.id, {
+          totalValue: 60000000,
+        });
+      });
+
+      it("forbids the contract worker from changing contract terms", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(WORKER);
         const response = await agent
           .put(`/api/contracts/${CONTRACT.id}`)
           .send({ totalValue: CONTRACT.totalValue });
 
         expect(response.status).toBe(403);
         expect(response.body).toEqual({ error: "Forbidden" });
-        expect(storage.getContractById).not.toHaveBeenCalled();
+        expect(storage.updateContract).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        { status: "completed" },
+        { clientSigned: true },
+        { workerSigned: true },
+        { clientId: OTHER_WORKER.id },
+        { workerId: OWNER.id },
+      ])("rejects server-controlled contract fields from generic updates", async (field) => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.put(`/api/contracts/${CONTRACT.id}`).send(field);
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "Payload kontrak tidak valid" });
         expect(storage.updateContract).not.toHaveBeenCalled();
       });
 
@@ -473,7 +494,7 @@ describe("Express route smoke tests", () => {
           ...payload,
           notes: null,
           contractId: CONTRACT.id,
-          status: "pending",
+          status: "in_progress",
           completedAt: null,
         });
       });
@@ -513,10 +534,14 @@ describe("Express route smoke tests", () => {
           .send({ notes: "Sudah selesai" });
 
         expect(allowed.status).toBe(200);
-        expect(storage.updateMilestone).toHaveBeenCalledWith(MILESTONE.id, {
-          status: "submitted",
-          notes: "Sudah selesai",
-        });
+        expect(storage.updateMilestone).toHaveBeenCalledWith(
+          MILESTONE.id,
+          {
+            status: "submitted",
+            notes: "Sudah selesai",
+          },
+          ["in_progress", "rejected"],
+        );
 
         const outsiderAgent = await authenticatedAgent(OTHER_WORKER);
         const forbidden = await outsiderAgent
@@ -530,8 +555,8 @@ describe("Express route smoke tests", () => {
 
       it("allows the client to approve a milestone but not the worker", async () => {
         vi.mocked(storage.getMilestoneById)
-          .mockResolvedValueOnce(MILESTONE as any)
-          .mockResolvedValueOnce(MILESTONE as any);
+          .mockResolvedValueOnce({ ...MILESTONE, status: "submitted" } as any)
+          .mockResolvedValueOnce({ ...MILESTONE, status: "submitted" } as any);
         vi.mocked(storage.getContractById)
           .mockResolvedValueOnce(CONTRACT as any)
           .mockResolvedValueOnce(CONTRACT as any);
@@ -543,15 +568,96 @@ describe("Express route smoke tests", () => {
         const clientAgent = await authenticatedAgent(OWNER);
         const allowed = await clientAgent.put(`/api/milestones/${MILESTONE.id}/approve`);
         expect(allowed.status).toBe(200);
-        expect(storage.updateMilestone).toHaveBeenCalledWith(MILESTONE.id, {
-          status: "approved",
-          completedAt: expect.any(String),
-        });
+        expect(storage.updateMilestone).toHaveBeenCalledWith(
+          MILESTONE.id,
+          {
+            status: "approved",
+            completedAt: expect.any(String),
+          },
+          ["submitted"],
+        );
 
         const workerAgent = await authenticatedAgent(WORKER);
         const forbidden = await workerAgent.put(`/api/milestones/${MILESTONE.id}/approve`);
         expect(forbidden.status).toBe(403);
         expect(storage.updateMilestone).toHaveBeenCalledTimes(1);
+      });
+
+      it("allows the client to reject a submitted milestone", async () => {
+        vi.mocked(storage.getMilestoneById).mockResolvedValueOnce({
+          ...MILESTONE,
+          status: "submitted",
+        } as any);
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.updateMilestone).mockResolvedValueOnce({
+          ...MILESTONE,
+          status: "rejected",
+        } as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent
+          .put(`/api/milestones/${MILESTONE.id}/reject`)
+          .send({ notes: "Perlu revisi" });
+
+        expect(response.status).toBe(200);
+        expect(storage.updateMilestone).toHaveBeenCalledWith(
+          MILESTONE.id,
+          {
+            status: "rejected",
+            notes: "Perlu revisi",
+            completedAt: null,
+          },
+          ["submitted"],
+        );
+      });
+
+      it.each([
+        {
+          user: WORKER,
+          action: "submit",
+          status: "approved",
+          error: "Status milestone tidak mengizinkan pengajuan",
+        },
+        {
+          user: OWNER,
+          action: "approve",
+          status: "in_progress",
+          error: "Milestone belum diajukan",
+        },
+        {
+          user: OWNER,
+          action: "reject",
+          status: "approved",
+          error: "Milestone belum diajukan",
+        },
+      ])("rejects invalid $status → $action milestone transitions", async ({ user, action, status, error }) => {
+        vi.mocked(storage.getMilestoneById).mockResolvedValueOnce({
+          ...MILESTONE,
+          status,
+        } as any);
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+
+        const agent = await authenticatedAgent(user);
+        const response = await agent.put(`/api/milestones/${MILESTONE.id}/${action}`);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error });
+        expect(storage.updateMilestone).not.toHaveBeenCalled();
+      });
+
+      it("rejects milestone changes after the contract is no longer active", async () => {
+        vi.mocked(storage.getMilestoneById).mockResolvedValueOnce(MILESTONE as any);
+        vi.mocked(storage.getContractById).mockResolvedValueOnce({
+          ...CONTRACT,
+          status: "completed",
+        } as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.put(`/api/milestones/${MILESTONE.id}/submit`);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "Kontrak tidak aktif" });
+        expect(storage.updateMilestone).not.toHaveBeenCalled();
       });
 
       it("forbids an unrelated user from contract reports", async () => {
@@ -924,16 +1030,17 @@ describe("Express route smoke tests", () => {
         vi.mocked(storage.getUsers).mockResolvedValueOnce([WORKER] as any);
         vi.mocked(storage.getProfiles).mockResolvedValueOnce([] as any);
         vi.mocked(storage.getApplicationById).mockResolvedValueOnce(applicationFromGet as any);
-        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getJobById).mockResolvedValue(JOB as any);
         vi.mocked(storage.updateApplication).mockResolvedValueOnce(applicationFromGet as any);
 
-        const agent = await authenticatedAgent(WORKER);
-        const getResponse = await agent.get(`/api/jobs/${JOB.id}/applications`);
+        const ownerAgent = await authenticatedAgent(OWNER);
+        const getResponse = await ownerAgent.get(`/api/jobs/${JOB.id}/applications`);
 
         expect(getResponse.status).toBe(200);
         expect(getResponse.body[0].proposedBudget).toEqual(expect.any(Number));
 
-        const updateResponse = await agent
+        const workerAgent = await authenticatedAgent(WORKER);
+        const updateResponse = await workerAgent
           .put(`/api/applications/${applicationFromGet.id}`)
           .send({ proposedBudget: getResponse.body[0].proposedBudget });
 

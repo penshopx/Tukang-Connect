@@ -3,3 +3,4 @@
 - [PGStore callback timing](pgstore-callback-timing.md) — real PostgreSQL I/O is not completed by advancing fake timers; await warning/recovery signals directly.
 - [Post-restart browser checks](post-restart-browser-checks.md) — wait for workflow stability before judging Vite WebSocket 502 reconnect noise as an app regression.
 - [Playwright on Nix](playwright-nix-runner.md) — local Chromium may lack shared libraries; distinguish runner setup failures from browser-tested app regressions.
+- [Contract authorization rules](contract-authorization.md) — contract participants need both actor-role checks and server-side milestone state-transition checks.

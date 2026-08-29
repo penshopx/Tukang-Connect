@@ -50,10 +50,10 @@ const createJobSchema = z
 const createMilestoneSchema = z
   .object({
     title: nonBlankString,
-    description: nonBlankString,
+    description: z.string(),
     amount: positiveMoney,
-    dueDate: validDeadline.or(z.null()).optional(),
-    notes: z.string().nullable().optional(),
+    dueDate: validDeadline.or(z.literal("")).or(z.null()).optional(),
+    status: z.literal("in_progress").optional(),
   })
   .strict();
 const createReportSchema = z
@@ -68,9 +68,6 @@ const updateContractSchema = z
     title: nonBlankString,
     description: nonBlankString,
     totalValue: positiveMoney,
-    status: z.enum(["draft", "active", "completed", "disputed"]),
-    clientSigned: z.boolean(),
-    workerSigned: z.boolean(),
     startDate: validDeadline.or(z.null()),
     endDate: validDeadline.or(z.null()),
   })
@@ -750,21 +747,16 @@ app.get("/api/jobs/:id/applications", requireAuth, async (req, res) => {
   if (!job) return res.status(404).json({ error: "Job not found" });
 
   const user = req.authenticatedUser!;
-  const apps = await storage.getApplicationsByJob(job.id);
-  const visibleApps =
-    user.role === "admin" || job.clientId === user.id
-      ? apps
-      : apps.filter((application) => application.applicantId === user.id);
-
-  if (visibleApps.length === 0 && user.role !== "admin" && job.clientId !== user.id) {
+  if (user.role !== "admin" && job.clientId !== user.id) {
     return res.status(403).json({ error: "Forbidden" });
   }
+  const apps = await storage.getApplicationsByJob(job.id);
 
   const [users, profiles] = await Promise.all([
     storage.getUsers(),
     storage.getProfiles(),
   ]);
-  const result = visibleApps.map((a) => {
+  const result = apps.map((a) => {
     const user = users.find((u) => u.id === a.applicantId);
     const profile = profiles.find((p) => p.userId === a.applicantId);
     return { ...a, applicant: user ? { id: user.id, fullName: user.fullName, profile } : null };
@@ -963,9 +955,9 @@ app.post("/api/contracts", requireAuth, async (req, res) => {
   });
 });
 
-app.put("/api/contracts/:id", requireAdmin, async (req, res) => {
-  const contract = await storage.getContractById(Number(req.params.id));
-  if (!contract) return res.status(404).json({ error: "Not found" });
+app.put("/api/contracts/:id", requireAuth, async (req, res) => {
+  const contract = await getAuthorizedContract(req, res, Number(req.params.id), ["client"]);
+  if (!contract) return;
   const parsedUpdate = updateContractSchema.safeParse(req.body);
   if (!parsedUpdate.success) {
     return res.status(400).json({ error: "Payload kontrak tidak valid" });
@@ -976,8 +968,8 @@ app.put("/api/contracts/:id", requireAdmin, async (req, res) => {
 });
 
 app.post("/api/contracts/:id/sign", requireAuth, async (req, res) => {
-  const contract = await storage.getContractById(Number(req.params.id));
-  if (!contract) return res.status(404).json({ error: "Not found" });
+  const contract = await getAuthorizedContract(req, res, Number(req.params.id));
+  if (!contract) return;
   const userId = req.session.userId!;
   let updateData: any = {};
   if (contract.clientId === userId) updateData.clientSigned = true;
@@ -996,6 +988,9 @@ app.post("/api/contracts/:contractId/milestones", requireAuth, async (req, res) 
     ["client"],
   );
   if (!contract) return;
+  if (contract.status !== "active") {
+    return res.status(409).json({ error: "Kontrak tidak aktif" });
+  }
   const parsedPayload = createMilestoneSchema.safeParse(req.body);
   if (!parsedPayload.success) {
     return res.status(400).json({ error: "Payload milestone tidak valid" });
@@ -1004,10 +999,10 @@ app.post("/api/contracts/:contractId/milestones", requireAuth, async (req, res) 
     title: parsedPayload.data.title,
     description: parsedPayload.data.description,
     amount: parsedPayload.data.amount,
-    dueDate: parsedPayload.data.dueDate ?? null,
-    notes: parsedPayload.data.notes ?? null,
+    dueDate: parsedPayload.data.dueDate || null,
+    notes: null,
     contractId: contract.id,
-    status: "pending",
+    status: "in_progress",
     completedAt: null,
   });
   res.status(201).json(milestone);
@@ -1021,11 +1016,21 @@ app.put("/api/milestones/:id/submit", requireAuth, async (req, res) => {
     ["worker"],
   );
   if (!authorized) return;
-  const updated = await storage.updateMilestone(authorized.milestone.id, {
-    status: "submitted",
-    notes: typeof req.body?.notes === "string" ? req.body.notes : null,
-  });
-  if (!updated) return res.status(404).json({ error: "Not found" });
+  if (authorized.contract.status !== "active") {
+    return res.status(409).json({ error: "Kontrak tidak aktif" });
+  }
+  if (!["in_progress", "rejected"].includes(authorized.milestone.status)) {
+    return res.status(409).json({ error: "Status milestone tidak mengizinkan pengajuan" });
+  }
+  const updated = await storage.updateMilestone(
+    authorized.milestone.id,
+    {
+      status: "submitted",
+      notes: typeof req.body?.notes === "string" ? req.body.notes : null,
+    },
+    ["in_progress", "rejected"],
+  );
+  if (!updated) return res.status(409).json({ error: "Milestone telah berubah, silakan muat ulang" });
   res.json(updated);
 });
 
@@ -1037,11 +1042,21 @@ app.put("/api/milestones/:id/approve", requireAuth, async (req, res) => {
     ["client"],
   );
   if (!authorized) return;
-  const updated = await storage.updateMilestone(authorized.milestone.id, {
-    status: "approved",
-    completedAt: new Date().toISOString(),
-  });
-  if (!updated) return res.status(404).json({ error: "Not found" });
+  if (authorized.contract.status !== "active") {
+    return res.status(409).json({ error: "Kontrak tidak aktif" });
+  }
+  if (authorized.milestone.status !== "submitted") {
+    return res.status(409).json({ error: "Milestone belum diajukan" });
+  }
+  const updated = await storage.updateMilestone(
+    authorized.milestone.id,
+    {
+      status: "approved",
+      completedAt: new Date().toISOString(),
+    },
+    ["submitted"],
+  );
+  if (!updated) return res.status(409).json({ error: "Milestone telah berubah, silakan muat ulang" });
   res.json(updated);
 });
 
@@ -1053,11 +1068,22 @@ app.put("/api/milestones/:id/reject", requireAuth, async (req, res) => {
     ["client"],
   );
   if (!authorized) return;
-  const updated = await storage.updateMilestone(authorized.milestone.id, {
-    status: "rejected",
-    notes: typeof req.body?.notes === "string" ? req.body.notes : null,
-  });
-  if (!updated) return res.status(404).json({ error: "Not found" });
+  if (authorized.contract.status !== "active") {
+    return res.status(409).json({ error: "Kontrak tidak aktif" });
+  }
+  if (authorized.milestone.status !== "submitted") {
+    return res.status(409).json({ error: "Milestone belum diajukan" });
+  }
+  const updated = await storage.updateMilestone(
+    authorized.milestone.id,
+    {
+      status: "rejected",
+      notes: typeof req.body?.notes === "string" ? req.body.notes : null,
+      completedAt: null,
+    },
+    ["submitted"],
+  );
+  if (!updated) return res.status(409).json({ error: "Milestone telah berubah, silakan muat ulang" });
   res.json(updated);
 });
 
