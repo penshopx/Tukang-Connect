@@ -161,6 +161,27 @@ describe("Express route smoke tests", () => {
   beforeEach(resetMocks);
 
   describe("public routes", () => {
+    it("rejects non-text chatbot questions before the Q&A orchestrator runs", async () => {
+      const response = await request(app)
+        .post("/api/klinika/ask")
+        .send({ question: { html: "<script>alert(1)</script>" } });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: "Pertanyaan wajib diisi" });
+    });
+
+    it("returns HTML-looking chatbot questions as JSON data without reflecting them in the answer", async () => {
+      const payload = '<img src=x onerror="window.__chatbotXss = true">';
+      const response = await request(app)
+        .post("/api/klinika/ask")
+        .send({ question: payload });
+
+      expect(response.status).toBe(200);
+      expect(response.body.question).toBe(payload);
+      expect(response.body.primaryAnswer.answer).not.toContain("<img");
+      expect(response.body.primaryAnswer.answer).not.toContain("<script");
+    });
+
     it("serves the database-backed health check with the expected shape", async () => {
       vi.mocked(pool.query).mockResolvedValueOnce({ rows: [{ "?column?": 1 }] } as any);
 

@@ -1853,9 +1853,9 @@ app.post("/api/klinika/questions", (req, res) => {
 });
 
 app.post("/api/klinika/ask", (req, res) => {
-  const { question } = req.body;
-  if (!question) return res.status(400).json({ error: "Pertanyaan wajib diisi" });
-  const result = orchestrateAnswer(question);
+  const parsedQuestion = nonBlankString.safeParse(req.body?.question);
+  if (!parsedQuestion.success) return res.status(400).json({ error: "Pertanyaan wajib diisi" });
+  const result = orchestrateAnswer(parsedQuestion.data);
   res.json(result);
 });
 

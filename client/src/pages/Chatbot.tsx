@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import {
   Send, Bot, User, HardHat, ChevronRight, Loader2,
   ExternalLink, Zap, MessageSquare, ArrowRight, Building2,
@@ -237,10 +237,19 @@ const FEATURE_LINKS = [
   { icon: "🏆", label: "Uji SKKNI", href: "/competency-test" },
 ];
 
-function formatMessage(text: string) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\n/g, "<br/>");
+function formatMessage(text: string): ReactNode {
+  return text.split("\n").flatMap((line, lineIndex) => {
+    const parts = line.split(/(\*\*[^*\n]+\*\*)/g);
+    const formattedLine = parts.map((part, partIndex) => {
+      const boldMatch = part.match(/^\*\*([^*\n]+)\*\*$/);
+      if (!boldMatch) return part;
+      return <strong key={`bold-${lineIndex}-${partIndex}`}>{boldMatch[1]}</strong>;
+    });
+
+    return lineIndex === 0
+      ? formattedLine
+      : [<br key={`break-${lineIndex}`} />, ...formattedLine];
+  });
 }
 
 export default function ChatbotPage() {
@@ -427,7 +436,7 @@ export default function ChatbotPage() {
                       ? `${agentConf.bg} rounded-tl-sm border`
                       : "bg-muted rounded-tl-sm"
                 }`}>
-                  <span dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }} />
+                  <span>{formatMessage(msg.content)}</span>
                 </div>
 
                 {/* References */}
@@ -559,7 +568,13 @@ export default function ChatbotPage() {
             className="flex-1 text-sm"
             disabled={loading}
           />
-          <Button type="submit" disabled={loading || !input.trim()} size="icon" className="shrink-0">
+          <Button
+            type="submit"
+            disabled={loading || !input.trim()}
+            size="icon"
+            className="shrink-0"
+            aria-label="Kirim pesan"
+          >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
