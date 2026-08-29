@@ -7,6 +7,7 @@ import {
   Bot, Trophy, GraduationCap, Building2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useUser, useLogout, useUnreadCount } from "@/hooks/useUser";
@@ -61,7 +62,7 @@ export default function Navbar() {
   const isActive = (href: string) => location.startsWith(href);
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-border/60 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-background border-b border-border/60 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center min-h-24 py-3">
 
@@ -151,6 +152,7 @@ export default function Navbar() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {user ? (
               <>
                 {/* Quick Chatbot access */}
@@ -201,7 +203,7 @@ export default function Navbar() {
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-2xl border shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-card rounded-2xl border shadow-xl z-50 overflow-hidden">
                       <div className="p-3 border-b bg-muted/30">
                         <p className="font-bold text-sm truncate">{user.fullName}</p>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
@@ -271,7 +273,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t bg-white px-3 py-3 space-y-0.5 max-h-[80vh] overflow-y-auto">
+        <div className="md:hidden border-t bg-background px-3 py-3 space-y-0.5 max-h-[80vh] overflow-y-auto">
           {navLinks.map((link) =>
             !link.auth || user ? (
               <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}

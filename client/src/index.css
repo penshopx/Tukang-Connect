@@ -25,6 +25,28 @@
     --ring: 221 83% 53%;
     --radius: 0.75rem;
   }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 44% 15%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 44% 15%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 55%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 22%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 70%;
+    --accent: 217 33% 25%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 28%;
+    --input: 217 33% 28%;
+    --ring: 199 89% 55%;
+  }
 }
 
 @layer base {
@@ -34,6 +56,31 @@
   body {
     @apply bg-background text-foreground;
     font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+}
+
+@layer components {
+  .dark .bg-white {
+    background-color: hsl(var(--card));
+  }
+
+  .dark .bg-gray-50 {
+    background-color: hsl(var(--background));
+  }
+
+  .dark .bg-gray-100 {
+    background-color: hsl(var(--muted));
+  }
+
+  .dark .text-gray-900,
+  .dark .text-gray-800 {
+    color: hsl(var(--foreground));
+  }
+
+  .dark .text-gray-500,
+  .dark .text-gray-400 {
+    color: hsl(var(--muted-foreground));
   }
 }
 
