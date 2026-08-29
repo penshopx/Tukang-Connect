@@ -99,7 +99,7 @@ function SearchIcon({ className }: { className?: string }) {
 
 export default function Dashboard() {
   const { data: user } = useUser();
-  const { data: notifications = [] } = useNotifications();
+  const { data: notifications = [] } = useNotifications(user?.id);
   const { data: contracts = [] } = useContracts();
   const { data: analytics } = useAnalytics();
   const { data: myJobs = [] } = useMyJobs(user?.id);

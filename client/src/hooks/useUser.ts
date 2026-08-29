@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, ApiRequestError } from "@/lib/queryClient";
 
 export function useUser() {
   return useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
       const res = await fetch("/api/auth/user", { credentials: "include" });
-      if (!res.ok) return null;
+      if (res.status === 401) return null;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiRequestError(
+          body.error || "Sesi tidak dapat diverifikasi.",
+          res.status,
+          body.code,
+        );
+      }
       return res.json();
     },
     retry: false,
@@ -145,7 +153,7 @@ export function useUpdateProfile() {
   });
 }
 
-export function useNotifications() {
+export function useNotifications(userId?: number) {
   return useQuery({
     queryKey: ["/api/notifications"],
     queryFn: async () => {
@@ -154,10 +162,11 @@ export function useNotifications() {
       return res.json();
     },
     refetchInterval: 30000,
+    enabled: !!userId,
   });
 }
 
-export function useUnreadCount() {
+export function useUnreadCount(userId?: number) {
   return useQuery({
     queryKey: ["/api/notifications/unread-count"],
     queryFn: async () => {
@@ -166,5 +175,6 @@ export function useUnreadCount() {
       return res.json();
     },
     refetchInterval: 30000,
+    enabled: !!userId,
   });
 }

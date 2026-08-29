@@ -381,26 +381,24 @@ describe("API routes when database is unreachable", () => {
       expect(res.body).not.toHaveProperty("message");
     });
 
-    it("returns the unauthenticated response when the session account no longer exists", async () => {
+    it("returns a null auth state when the session account no longer exists", async () => {
       const agent = await authenticatedAgent();
       vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
 
       const res = await agent.get("/api/auth/user");
 
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toMatch(/application\/json/);
-      expect(res.body).toEqual({ error: "Not authenticated" });
-      expect(res.body).not.toHaveProperty("stack");
-      expect(res.body).not.toHaveProperty("message");
+      expect(res.body).toBeNull();
 
       // The stale session must be gone, so the same cookie cannot authenticate
       // a later request even if an account with that id becomes available again.
       vi.mocked(storage.getUserById).mockResolvedValueOnce(FAKE_USER as any);
       const subsequentRes = await agent.get("/api/auth/user");
 
-      expect(subsequentRes.status).toBe(401);
+      expect(subsequentRes.status).toBe(200);
       expect(subsequentRes.headers["content-type"]).toMatch(/application\/json/);
-      expect(subsequentRes.body).toEqual({ error: "Not authenticated" });
+      expect(subsequentRes.body).toBeNull();
       expect(storage.getUserById).toHaveBeenCalledTimes(1);
     });
   });

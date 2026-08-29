@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FloatingChatbot from "@/components/FloatingChatbot";
 import DatabaseStatusBanner from "@/components/DatabaseStatusBanner";
+import { useUser } from "@/hooks/useUser";
 
 // Keep the initial desktop shell small. Each page loads only when its route is visited.
 const HomePage = lazy(() => import("@/pages/Home"));
@@ -45,6 +46,41 @@ function RouteLoading() {
     </div>
   );
 }
+
+function ProtectedPage({ children }: { children: React.ReactNode }) {
+  const [, navigate] = useLocation();
+  const { data: user, isLoading, isError, error, refetch } = useUser();
+
+  useEffect(() => {
+    if (!isLoading && !isError && !user) {
+      navigate("/login?error=session_expired");
+    }
+  }, [isError, isLoading, navigate, user]);
+
+  if (isLoading) return <RouteLoading />;
+
+  if (isError) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <p className="text-lg font-semibold">Sesi belum dapat diverifikasi</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Layanan sedang mengalami gangguan. Coba lagi sebentar.
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        >
+          Coba lagi
+        </button>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+  return <>{children}</>;
+}
+
 export default function App() {
   const [location] = useLocation();
   const showNav = !NO_NAV_ROUTES.includes(location);
@@ -69,7 +105,14 @@ export default function App() {
             <Route path="/login" component={() => <AuthPage mode="login" />} />
             <Route path="/register" component={() => <AuthPage mode="register" />} />
             <Route path="/onboarding" component={OnboardingPage} />
-            <Route path="/dashboard" component={Dashboard} />
+            <Route
+              path="/dashboard"
+              component={() => (
+                <ProtectedPage>
+                  <Dashboard />
+                </ProtectedPage>
+              )}
+            />
             <Route path="/jobs/create" component={JobCreate} />
             <Route path="/jobs/:id/brain" component={BrainProject} />
             <Route path="/jobs/:id" component={JobDetail} />

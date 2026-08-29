@@ -64,7 +64,15 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const errorParam = params.get("error");
-    if (errorParam === "auth_failed") {
+    if (errorParam === "session_expired") {
+      const error = {
+        title: "Sesi Berakhir",
+        description: "Sesi Anda telah berakhir. Silakan masuk kembali untuk membuka dashboard.",
+      };
+      setAuthError(error);
+      toast({ ...error, variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (errorParam === "auth_failed") {
       const error = {
         title: "Login Gagal",
         description: "Autentikasi Replit gagal. Silakan coba lagi.",

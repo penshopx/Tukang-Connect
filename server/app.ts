@@ -644,8 +644,16 @@ app.post("/api/logout", (req, res) => {
 });
 
 app.get("/api/auth/user", async (req, res) => {
-  const user = await authenticateSession(req, res, "Not authenticated");
-  if (!user) return;
+  if (!req.session.userId) {
+    return res.json(null);
+  }
+
+  const user = await storage.getUserById(req.session.userId);
+  if (!user) {
+    await destroyStaleSession(req);
+    return res.json(null);
+  }
+
   const { password: _, ...safeUser } = user;
   res.json(safeUser);
 });

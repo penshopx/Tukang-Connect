@@ -18,9 +18,10 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [, navigate] = useLocation();
   const { data: user } = useUser();
   const { mutate: logout } = useLogout();
-  const { data: unread } = useUnreadCount();
+  const { data: unread } = useUnreadCount(user?.id);
 
   const isTukang = user?.role === "tukang";
   const isAdmin = user?.role === "admin";
@@ -237,7 +238,12 @@ export default function Navbar() {
                         </Link>
                         <div className="border-t my-1" />
                         <button
-                          onClick={() => { logout(); setUserMenuOpen(false); }}
+                           onClick={() => {
+                             logout(undefined, {
+                               onSuccess: () => navigate("/"),
+                             });
+                             setUserMenuOpen(false);
+                           }}
                           className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl hover:bg-red-50 hover:text-destructive w-full transition-colors text-destructive"
                         >
                           <LogOut className="h-4 w-4" /> Keluar

@@ -220,7 +220,7 @@ Kedua respons health tersebut tetap berarti layanan perlu dipantau/dicoba ulang,
 Status `4xx` menunjukkan masalah pada request atau hak akses dan biasanya tidak akan berubah dengan retry yang sama. Perbaiki request atau minta tindakan pengguna:
 
 - `400` — payload tidak valid atau aturan bisnis dilanggar
-- `401` — belum terautentikasi atau sesi tidak berlaku
+- `401` — belum terautentikasi atau sesi tidak berlaku pada route privat. Endpoint status sesi `GET /api/auth/user` adalah pengecualian: endpoint ini mengembalikan `200` dengan body `null` bila pengguna belum login atau sesi stale sudah dibersihkan.
 - `403` — tidak memiliki izin
 - `404` — resource tidak ditemukan
 - `405` — path API dikenali, tetapi method tidak didukung. Header `Allow` berisi method yang tersedia, misalnya `Allow: GET, HEAD`. Bentuk responsnya:

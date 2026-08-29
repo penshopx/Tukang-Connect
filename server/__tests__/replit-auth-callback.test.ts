@@ -336,7 +336,8 @@ describe("GET /api/auth/replit/callback — Replit OAuth callback", () => {
       await agent.get("/api/auth/replit/callback");
 
       const meRes = await agent.get("/api/auth/user");
-      expect(meRes.status).toBe(401);
+      expect(meRes.status).toBe(200);
+      expect(meRes.body).toBeNull();
     });
 
     it("does not create a new account when the DB is down", async () => {
