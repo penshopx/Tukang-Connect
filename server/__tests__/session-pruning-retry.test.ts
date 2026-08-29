@@ -120,6 +120,68 @@ describe("session pruning retry scheduler", () => {
     vi.useRealTimers();
   });
 
+  it("sends paired monitoring events once per sustained incident", () => {
+    vi.useFakeTimers();
+
+    let attempts = 0;
+    const pruneSessions = vi.fn().mockImplementation(
+      (callback: (error: Error | null) => void) => {
+        attempts += 1;
+        callback(attempts % 3 === 0 ? null : new Error("database unavailable"));
+      },
+    );
+    const onMonitoringEvent = vi.fn();
+    const pruner = startSessionPruner(
+      { pruneSessions },
+      {
+        intervalMs: 1_000,
+        retryDelayMs: 100,
+        warningThreshold: 2,
+        onWarning: vi.fn(),
+        onRecovery: vi.fn(),
+        onMonitoringEvent,
+      },
+    );
+
+    vi.advanceTimersByTime(1_000 + 100 * 2 + 1_000 + 100 * 2);
+
+    expect(onMonitoringEvent).toHaveBeenCalledTimes(4);
+    expect(onMonitoringEvent).toHaveBeenNthCalledWith(1, {
+      type: "session_pruning_incident_started",
+      incidentId: expect.any(String),
+      consecutiveFailures: 2,
+      errorMessage: "database unavailable",
+      occurredAt: expect.any(String),
+    });
+    expect(onMonitoringEvent).toHaveBeenNthCalledWith(2, {
+      type: "session_pruning_incident_recovered",
+      incidentId: expect.any(String),
+      consecutiveFailures: 2,
+      occurredAt: expect.any(String),
+    });
+    expect(onMonitoringEvent).toHaveBeenNthCalledWith(3, {
+      type: "session_pruning_incident_started",
+      incidentId: expect.any(String),
+      consecutiveFailures: 2,
+      errorMessage: "database unavailable",
+      occurredAt: expect.any(String),
+    });
+    expect(onMonitoringEvent).toHaveBeenNthCalledWith(4, {
+      type: "session_pruning_incident_recovered",
+      incidentId: expect.any(String),
+      consecutiveFailures: 2,
+      occurredAt: expect.any(String),
+    });
+
+    const events = onMonitoringEvent.mock.calls.map(([event]) => event);
+    expect(events[0].incidentId).toBe(events[1].incidentId);
+    expect(events[2].incidentId).toBe(events[3].incidentId);
+    expect(events[0].incidentId).not.toBe(events[2].incidentId);
+
+    pruner.stop();
+    vi.useRealTimers();
+  });
+
   it("emits a new warning and recovery for a second incident after pruning recovers", () => {
     vi.useFakeTimers();
 

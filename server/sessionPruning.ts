@@ -19,13 +19,43 @@ export interface SessionPrunerOptions {
   onError?: (error: Error) => void;
   onWarning?: (error: Error, consecutiveFailures: number) => void;
   onRecovery?: (consecutiveFailures: number) => void;
+  onMonitoringEvent?: (event: SessionPruningMonitoringEvent) => void;
   schedule?: typeof setTimeout;
   cancel?: typeof clearTimeout;
 }
 
+export interface SessionPruningIncidentStartedEvent {
+  type: "session_pruning_incident_started";
+  incidentId: string;
+  consecutiveFailures: number;
+  errorMessage: string;
+  occurredAt: string;
+}
+
+export interface SessionPruningIncidentRecoveredEvent {
+  type: "session_pruning_incident_recovered";
+  incidentId: string;
+  consecutiveFailures: number;
+  occurredAt: string;
+}
+
+export type SessionPruningMonitoringEvent =
+  | SessionPruningIncidentStartedEvent
+  | SessionPruningIncidentRecoveredEvent;
+
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 const DEFAULT_RETRY_DELAY_MS = 60 * 1000;
 const DEFAULT_WARNING_THRESHOLD = 3;
+let incidentSequence = 0;
+
+function createIncidentId(): string {
+  incidentSequence += 1;
+  return `session-pruning-${process.pid}-${incidentSequence}`;
+}
+
+function getErrorMessage(error: Error): string {
+  return error.message || error.name || "unknown pruning error";
+}
 
 /**
  * Keeps expired-session cleanup alive when PostgreSQL has a transient outage.
@@ -61,11 +91,28 @@ export function startSessionPruner(
       `[session-pruning] pruning recovered after ${consecutiveFailures} consecutive failures`,
     );
   });
+  const onMonitoringEvent = options.onMonitoringEvent ?? ((event: SessionPruningMonitoringEvent) => {
+    const log = event.type === "session_pruning_incident_started"
+      ? console.error
+      : console.info;
+    log(`[session-pruning-monitor] ${JSON.stringify(event)}`);
+  });
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   let consecutiveFailures = 0;
   let warningEmitted = false;
+  let incidentId: string | undefined;
+
+  const emitMonitoringEvent = (event: SessionPruningMonitoringEvent) => {
+    try {
+      onMonitoringEvent(event);
+    } catch (monitoringError) {
+      // A monitoring sink must never prevent the retry scheduler from
+      // continuing to clean up sessions.
+      console.error("[session-pruning] monitoring event failed:", monitoringError);
+    }
+  };
 
   const scheduleNext = (delayMs: number) => {
     if (stopped) return;
@@ -89,13 +136,30 @@ export function startSessionPruner(
         onError?.(error);
         if (!warningEmitted && consecutiveFailures >= warningThreshold) {
           warningEmitted = true;
+          incidentId = createIncidentId();
+          emitMonitoringEvent({
+            type: "session_pruning_incident_started",
+            incidentId,
+            consecutiveFailures,
+            errorMessage: getErrorMessage(error),
+            occurredAt: new Date().toISOString(),
+          });
           onWarning(error, consecutiveFailures);
         }
         scheduleNext(retryDelayMs);
       } else {
-        if (warningEmitted) onRecovery(consecutiveFailures);
+        if (warningEmitted) {
+          emitMonitoringEvent({
+            type: "session_pruning_incident_recovered",
+            incidentId: incidentId!,
+            consecutiveFailures,
+            occurredAt: new Date().toISOString(),
+          });
+          onRecovery(consecutiveFailures);
+        }
         consecutiveFailures = 0;
         warningEmitted = false;
+        incidentId = undefined;
         scheduleNext(intervalMs);
       }
     });

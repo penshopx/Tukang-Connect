@@ -11,7 +11,10 @@ import { z } from "zod";
 import { storage, withTransaction, pool, contractFromRow } from "./storage.js";
 import { MatchingAgent, PricingAgent, MilestoneAgent, ApplicationRankingAgent, AgentOrchestrator, BrainContractOrchestrator } from "./agents.js";
 import { orchestrateAnswer, SEEDED_QUESTIONS } from "./constructionQA.js";
-import { startSessionPruner } from "./sessionPruning.js";
+import {
+  startSessionPruner,
+  type SessionPruningMonitoringEvent,
+} from "./sessionPruning.js";
 import type { User } from "../shared/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -91,7 +94,42 @@ const sessionStore =
       })
     : undefined;
 
-const sessionPruner = sessionStore ? startSessionPruner(sessionStore) : undefined;
+type SessionPruningHealth =
+  | { status: "ok"; lastIncidentId?: string; recoveredAt?: string }
+  | {
+      status: "degraded";
+      incidentId: string;
+      consecutiveFailures: number;
+      startedAt: string;
+    };
+
+let sessionPruningHealth: SessionPruningHealth = { status: "ok" };
+
+function reportSessionPruningMonitoringEvent(event: SessionPruningMonitoringEvent): void {
+  if (event.type === "session_pruning_incident_started") {
+    sessionPruningHealth = {
+      status: "degraded",
+      incidentId: event.incidentId,
+      consecutiveFailures: event.consecutiveFailures,
+      startedAt: event.occurredAt,
+    };
+    console.error(`[health-monitor] ${JSON.stringify(event)}`);
+    return;
+  }
+
+  sessionPruningHealth = {
+    status: "ok",
+    lastIncidentId: event.incidentId,
+    recoveredAt: event.occurredAt,
+  };
+  console.info(`[health-monitor] ${JSON.stringify(event)}`);
+}
+
+const sessionPruner = sessionStore
+  ? startSessionPruner(sessionStore, {
+      onMonitoringEvent: reportSessionPruningMonitoringEvent,
+    })
+  : undefined;
 
 app.use(
   session({
@@ -106,6 +144,17 @@ app.use(
 app.get("/api/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
+
+    if (sessionPruningHealth.status === "degraded") {
+      res.status(503).json({
+        status: "degraded",
+        code: "SESSION_PRUNING_UNAVAILABLE",
+        error: "Pembersihan sesi sedang tertunda",
+        sessionPruning: sessionPruningHealth,
+      });
+      return;
+    }
+
     res.json({ status: "ok" });
   } catch (err) {
     console.error("[health] database check failed:", err);
