@@ -50,11 +50,15 @@ const dbError = Object.assign(
 
 // ─── Fake users ───────────────────────────────────────────────────────────────
 
+// Plain-text password used in login calls; PELANGGAN_USER.password is the bcrypt hash.
+const TEST_PASSWORD = "password123";
+
 const PELANGGAN_USER = {
   id: 1,
   username: "newreplituser",
   email: "newreplituser@example.com",
-  password: "",
+  // bcrypt hash of TEST_PASSWORD — matches what the real DB stores
+  password: "$2b$10$GBwIQQu9USQQtlvzWcJe/u8Dkib3/tV4V2z98FepfghuphMptB19e",
   role: "pelanggan",
   fullName: "New Replit User",
   createdAt: "2024-01-01T00:00:00.000Z",
@@ -158,7 +162,8 @@ async function authenticatedAgent(user = PELANGGAN_USER) {
   const agent = request.agent(app);
   const loginRes = await agent
     .post("/api/login")
-    .send({ email: user.email, password: user.password });
+    // Send the plain-text password; user.password holds the stored bcrypt hash.
+    .send({ email: user.email, password: TEST_PASSWORD });
 
   expect(loginRes.status).toBe(200); // sanity-check: login succeeded
   return agent;
@@ -425,7 +430,7 @@ describe("Simulated post-Replit-OAuth onboarding flow", () => {
     const agent = request.agent(app);
     const loginRes = await agent
       .post("/api/login")
-      .send({ email: PELANGGAN_USER.email, password: "" });
+      .send({ email: PELANGGAN_USER.email, password: TEST_PASSWORD });
     expect(loginRes.status).toBe(200);
 
     // Step 2: User arrives at /onboarding and picks tukang.
@@ -463,7 +468,7 @@ describe("Simulated post-Replit-OAuth onboarding flow", () => {
     const agent = request.agent(app);
     await agent
       .post("/api/login")
-      .send({ email: PELANGGAN_USER.email, password: "" });
+      .send({ email: PELANGGAN_USER.email, password: TEST_PASSWORD });
 
     vi.mocked(storage.updateUserRole).mockResolvedValueOnce(undefined as any);
     const roleRes = await agent

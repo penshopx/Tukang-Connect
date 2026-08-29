@@ -1,4 +1,5 @@
 import pg from "pg";
+import bcrypt from "bcrypt";
 import type {
   User,
   Profile,
@@ -220,21 +221,35 @@ async function seedDatabase() {
   const check = await pool.query("SELECT id FROM seed_status WHERE id = 1");
   if (check.rows.length > 0) return; // already seeded
 
+  // Pre-hash demo passwords before acquiring a client
+  const [hashPassword123, hashAdmin123] = await Promise.all([
+    bcrypt.hash("password123", 10),
+    bcrypt.hash("admin123", 10),
+  ]);
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // Users
-    await client.query(`
-      INSERT INTO users (id, username, email, password, role, full_name, created_at) VALUES
-      (1, 'budi_pelanggan', 'budi@example.com', 'password123', 'pelanggan', 'Budi Santoso', '2024-01-15'),
-      (2, 'ahmad_tukang', 'ahmad@example.com', 'password123', 'tukang', 'Ahmad Fauzi', '2024-01-10'),
-      (3, 'siti_tukang', 'siti@example.com', 'password123', 'tukang', 'Siti Rahayu', '2024-01-12'),
-      (4, 'admin', 'admin@kerjaproyek.id', 'admin123', 'admin', 'Admin KerjaProyek', '2024-01-01'),
-      (5, 'rudi_tukang', 'rudi@example.com', 'password123', 'tukang', 'Rudi Hermawan', '2024-01-08'),
-      (6, 'dewi_pelanggan', 'dewi@example.com', 'password123', 'pelanggan', 'Dewi Kusuma', '2024-01-20')
-      ON CONFLICT DO NOTHING
-    `);
+    // Users (passwords stored as bcrypt hashes)
+    await client.query(
+      `INSERT INTO users (id, username, email, password, role, full_name, created_at) VALUES
+      ($1, 'budi_pelanggan', 'budi@example.com', $2, 'pelanggan', 'Budi Santoso', '2024-01-15'),
+      ($3, 'ahmad_tukang', 'ahmad@example.com', $4, 'tukang', 'Ahmad Fauzi', '2024-01-10'),
+      ($5, 'siti_tukang', 'siti@example.com', $6, 'tukang', 'Siti Rahayu', '2024-01-12'),
+      ($7, 'admin', 'admin@kerjaproyek.id', $8, 'admin', 'Admin KerjaProyek', '2024-01-01'),
+      ($9, 'rudi_tukang', 'rudi@example.com', $10, 'tukang', 'Rudi Hermawan', '2024-01-08'),
+      ($11, 'dewi_pelanggan', 'dewi@example.com', $12, 'pelanggan', 'Dewi Kusuma', '2024-01-20')
+      ON CONFLICT DO NOTHING`,
+      [
+        1, hashPassword123,
+        2, hashPassword123,
+        3, hashPassword123,
+        4, hashAdmin123,
+        5, hashPassword123,
+        6, hashPassword123,
+      ]
+    );
     await client.query("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))");
 
     // Profiles
@@ -797,4 +812,34 @@ export const storage = {
 };
 
 // Run seed on startup
-seedDatabase().catch((err) => console.error("[storage] Startup seed error:", err));
+// ─── Password migration ───────────────────────────────────────────────────────
+// Migrates any existing plain-text passwords to bcrypt hashes on startup.
+// Safe to run every time: bcrypt hashes always start with "$2", so already-
+// hashed passwords are skipped.
+// Bcrypt hashes always match $2[aby]$dd$<53 chars of base64> — 60 chars total.
+const BCRYPT_HASH_RE = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+
+async function migratePasswordsToHash() {
+  const { rows } = await pool.query(
+    "SELECT id, password FROM users WHERE password IS NOT NULL AND password != ''"
+  );
+  // Filter in JS using the full bcrypt hash regex so a plain-text password
+  // that happens to start with "$2" is not mistakenly skipped.
+  const needsMigration = rows.filter((r) => !BCRYPT_HASH_RE.test(r.password));
+  if (needsMigration.length === 0) return;
+  console.log(`[storage] Migrating ${needsMigration.length} plain-text password(s) to bcrypt hashes.`);
+  for (const row of needsMigration) {
+    const hashed = await bcrypt.hash(row.password, 10);
+    await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hashed, row.id]);
+  }
+  console.log("[storage] Password migration complete.");
+}
+
+// Exported so callers (e.g. server/index.ts) can await completion before
+// accepting requests, ensuring no user is served during an active migration.
+export const startupReady: Promise<void> = seedDatabase()
+  .then(() => migratePasswordsToHash())
+  .catch((err) => {
+    console.error("[storage] Startup seed/migration error:", err);
+    // Don't re-throw — a seed/migration failure should not crash the process.
+  });

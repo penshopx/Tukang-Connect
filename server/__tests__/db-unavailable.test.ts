@@ -25,11 +25,15 @@ const dbError = Object.assign(
 
 // ─── Fake user for establishing an authenticated session ──────────────────────
 
+// Plain-text password used in login calls; FAKE_USER.password is the bcrypt hash.
+const FAKE_USER_PASSWORD = "pass123";
+
 const FAKE_USER = {
   id: 42,
   username: "testuser",
   email: "testuser@example.com",
-  password: "pass123",
+  // bcrypt hash of "pass123" — matches what the real DB would store
+  password: "$2b$10$7f/XLgajP4pD7TTgfLU6ueHcZTJZ6EtggkRFH.PtWgfaUaNzNDJey",
   role: "pelanggan",
   fullName: "Test User",
   createdAt: "2024-01-01T00:00:00.000Z",
@@ -205,7 +209,7 @@ describe("API routes when database is unreachable", () => {
       const agent = request.agent(app); // agent preserves cookies across requests
       const loginRes = await agent
         .post("/api/login")
-        .send({ email: FAKE_USER.email, password: FAKE_USER.password });
+        .send({ email: FAKE_USER.email, password: FAKE_USER_PASSWORD });
 
       expect(loginRes.status).toBe(200); // sanity-check: login worked
       return agent;

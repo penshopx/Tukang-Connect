@@ -6,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { Issuer, generators } from "openid-client";
+import bcrypt from "bcrypt";
 import { storage, withTransaction, pool } from "./storage.js";
 import { MatchingAgent, PricingAgent, MilestoneAgent, ApplicationRankingAgent, AgentOrchestrator, BrainContractOrchestrator } from "./agents.js";
 import { orchestrateAnswer, SEEDED_QUESTIONS } from "./constructionQA.js";
@@ -254,7 +255,11 @@ app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await storage.getUserByEmail(email);
-    if (!user || user.password !== password) {
+    if (!user || !user.password) {
+      return res.status(401).json({ error: "Email atau password salah" });
+    }
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
       return res.status(401).json({ error: "Email atau password salah" });
     }
     req.session.userId = user.id;
@@ -275,8 +280,9 @@ app.post("/api/register", async (req, res) => {
     if (await storage.getUserByUsername(username)) {
       return res.status(400).json({ error: "Username sudah digunakan" });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
     const { user } = await storage.createUserWithProfile(
-      { username, email, password, fullName, role: role || "pelanggan" },
+      { username, email, password: hashedPassword, fullName, role: role || "pelanggan" },
       {
         bio: null, location: null, skills: [], category: null, hourlyRate: null,
         isVerified: false, isMandor: false, certifications: [], avatarUrl: null,
