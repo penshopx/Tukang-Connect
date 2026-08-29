@@ -8,6 +8,6 @@ export default defineConfig({
     isolate: true,
     // Only run source tests; exclude compiled output so dist/ duplicates
     // don't inflate the suite or drift from the TypeScript originals.
-    exclude: ["dist/**", "node_modules/**"],
+    exclude: ["dist/**", "node_modules/**", "client/e2e/**"],
   },
 });
