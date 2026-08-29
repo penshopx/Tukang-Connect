@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Search, Star, Shield, Award, HardHat, ArrowRight, CheckCircle,
+  Search, Shield, Award, HardHat, ArrowRight, CheckCircle,
   Wrench, Zap, Home, Paintbrush, Layers, Wifi, Droplets,
   Bot, MessageSquare, Calculator, BookOpen, Newspaper, Trophy,
   ChevronRight, Users, Briefcase, FileText, TrendingUp, Target,
-  Building2, GraduationCap, BarChart2, Play, Check, X
+  Building2, GraduationCap, BarChart2, Play
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +13,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 const SERVICE_CATEGORIES = [
-  { icon: <Home className="h-6 w-6" />, label: "Renovasi", color: "bg-blue-50 text-blue-600", count: "850+ ahli" },
-  { icon: <HardHat className="h-6 w-6" />, label: "Konstruksi Baru", color: "bg-orange-50 text-orange-600", count: "320+ ahli" },
-  { icon: <Zap className="h-6 w-6" />, label: "Listrik", color: "bg-yellow-50 text-yellow-600", count: "210+ ahli" },
-  { icon: <Droplets className="h-6 w-6" />, label: "Plambing", color: "bg-cyan-50 text-cyan-600", count: "180+ ahli" },
-  { icon: <Paintbrush className="h-6 w-6" />, label: "Pengecatan", color: "bg-pink-50 text-pink-600", count: "290+ ahli" },
-  { icon: <Layers className="h-6 w-6" />, label: "Lantai", color: "bg-purple-50 text-purple-600", count: "170+ ahli" },
-  { icon: <Wrench className="h-6 w-6" />, label: "Las", color: "bg-red-50 text-red-600", count: "140+ ahli" },
-  { icon: <Wifi className="h-6 w-6" />, label: "Sipil", color: "bg-green-50 text-green-600", count: "260+ ahli" },
+  { icon: <Home className="h-6 w-6" />, label: "Renovasi", color: "bg-blue-50 text-blue-600", descriptor: "Perbaikan ruang dan hunian" },
+  { icon: <HardHat className="h-6 w-6" />, label: "Konstruksi Baru", color: "bg-orange-50 text-orange-600", descriptor: "Bangun baru dari awal" },
+  { icon: <Zap className="h-6 w-6" />, label: "Listrik", color: "bg-yellow-50 text-yellow-600", descriptor: "Instalasi dan perawatan" },
+  { icon: <Droplets className="h-6 w-6" />, label: "Plambing", color: "bg-cyan-50 text-cyan-600", descriptor: "Air bersih dan sanitasi" },
+  { icon: <Paintbrush className="h-6 w-6" />, label: "Pengecatan", color: "bg-pink-50 text-pink-600", descriptor: "Finishing yang rapi" },
+  { icon: <Layers className="h-6 w-6" />, label: "Lantai", color: "bg-purple-50 text-purple-600", descriptor: "Pemasangan dan perawatan" },
+  { icon: <Wrench className="h-6 w-6" />, label: "Las", color: "bg-red-50 text-red-600", descriptor: "Fabrikasi dan sambungan" },
+  { icon: <Wifi className="h-6 w-6" />, label: "Sipil", color: "bg-green-50 text-green-600", descriptor: "Pekerjaan struktur lapangan" },
 ];
 
 const TESTIMONIALS = [
@@ -31,82 +31,78 @@ const TESTIMONIALS = [
     text: "Klinika Teknis-nya luar biasa! Saya tanya soal pondasi untuk tanah saya yang ekspansif, dapat jawaban lengkap dari Agen AI Struktur dengan referensi SNI langsung. Gak perlu bayar konsultan dulu!",
     feature: "Klinika Teknis",
     featureLink: "/klinika",
-    rating: 5,
     avatar: "HS",
   },
   {
     name: "Bu Ratna Dewi",
     role: "Developer Properti",
     location: "Surabaya",
-    text: "Brain Project benar-benar mengubah cara saya mengawasi 3 proyek sekaligus. Skor kesehatan real-time, deteksi risiko otomatis — saya bisa tidur tenang meski proyek jalan terus.",
+    text: "Brain Project benar-benar mengubah cara saya mengawasi proyek. Ringkasan kesehatan dan deteksi risiko membantu saya mengambil keputusan dengan lebih tenang.",
     feature: "Brain Project",
     featureLink: "/dashboard",
-    rating: 5,
     avatar: "RD",
   },
   {
     name: "Pak Ahmad Fauzi",
     role: "Mandor Konstruksi",
     location: "Bandung",
-    text: "Berkat Bimtek online KerjaProyek, saya naik level KKNI dari 4 ke 6. Sekarang proyek yang datang lebih besar dan fee lebih tinggi. Dashboard tukang juga membantu saya tracking pendapatan.",
+    text: "Berkat Bimtek online KerjaProyek, saya lebih percaya diri mengembangkan kompetensi. Dashboard tukang juga membantu saya melacak peluang dan pekerjaan dengan lebih rapi.",
     feature: "Bimtek & Pelatihan",
     featureLink: "/bimtek",
-    rating: 5,
     avatar: "AF",
   },
   {
     name: "Bu Siti Rahayu",
     role: "Kontraktor Independen",
     location: "Semarang",
-    text: "Estimator Biaya KerjaProyek membantu saya buat RAB lebih akurat. Klien langsung percaya karena saya bisa tunjukkan hitungan berbasis AHSP 2025 dan SNI — profesional banget!",
+    text: "Estimator Biaya KerjaProyek membantu saya menyusun RAB dengan lebih rapi. Klien lebih mudah memahami pekerjaan karena saya bisa menunjukkan hitungan berbasis AHSP dan SNI.",
     feature: "Estimator Biaya",
     featureLink: "/cost-estimator",
-    rating: 5,
     avatar: "SR",
   },
 ];
 
 const AI_TOOLS = [
   {
-    emoji: "🧠", title: "Klinika Teknis", badge: "6 Agen AI",
-    desc: "Forum tanya jawab teknis dijawab 6 Agen AI spesialis: Struktur, Arsitektur, MEP, K3, Manajemen, Material. Referensi SNI otomatis.",
+    emoji: "🧠", title: "Klinika Teknis", badge: "Panduan Teknis",
+     desc: "Forum tanya jawab teknis dengan dukungan AI spesialis untuk Struktur, Arsitektur, MEP, K3, Manajemen, dan Material. Referensi standar membantu jawaban tetap terarah.",
     link: "/klinika", color: "from-purple-600/30 to-violet-800/20 border-purple-500/30",
-    highlights: ["Referensi SNI & PUIL otomatis", "Jawaban multi-perspektif agen", "Pertanyaan terkait otomatis"],
+     highlights: ["Referensi SNI & PUIL", "Jawaban dari berbagai perspektif", "Pertanyaan lanjutan yang relevan"],
     forRole: "semua",
   },
   {
-    emoji: "💰", title: "Estimator Biaya RAB", badge: "SNI & AHSP 2025",
-    desc: "Hitung estimasi anggaran proyek instan. Breakdown per komponen, per kota, dengan faktor lokasi AHSP terbaru.",
+     emoji: "💰", title: "Estimator Biaya RAB", badge: "Acuan SNI & AHSP",
+     desc: "Susun estimasi anggaran proyek dengan rincian komponen, pertimbangan lokasi, dan acuan AHSP yang relevan.",
     link: "/cost-estimator", color: "from-amber-600/30 to-orange-800/20 border-amber-500/30",
-    highlights: ["AHSP per kota (15 kota)", "Breakdown material & upah", "3 kelas kualitas"],
+     highlights: ["Pertimbangan lokasi", "Rincian material dan upah", "Pilihan tingkat kualitas"],
     forRole: "owner",
   },
   {
-    emoji: "🔮", title: "Brain Project", badge: "5 Agen Supervisi",
-    desc: "Supervisi kontrak aktif real-time. 5 agen AI memantau compliance, sequence SNI, budget, progress, dan kualitas lapangan.",
+     emoji: "🔮", title: "Brain Project", badge: "Supervisi Cerdas",
+     desc: "Supervisi kontrak aktif secara berkala. AI membantu memantau kepatuhan, urutan pekerjaan, anggaran, progres, dan kualitas lapangan.",
     link: "/dashboard", color: "from-blue-600/30 to-indigo-800/20 border-blue-500/30",
-    highlights: ["Skor kesehatan proyek 0-100", "Deteksi risiko dini otomatis", "Action items prioritized"],
+     highlights: ["Ringkasan kesehatan proyek", "Deteksi risiko lebih dini", "Rekomendasi tindakan prioritas"],
     forRole: "owner",
   },
   {
-    emoji: "🎯", title: "AI Worker Matching", badge: "Smart Match 40pt",
+     emoji: "🎯", title: "AI Worker Matching", badge: "Pencocokan Cerdas",
     desc: "Sistem pencocokan cerdas tukang ↔ proyek. Skor berdasarkan keahlian, lokasi, rating, level SKK/KKNI, dan pengalaman.",
     link: "/experts", color: "from-green-600/30 to-emerald-800/20 border-green-500/30",
-    highlights: ["Skor kecocokan real-time", "Filter 40+ keahlian khusus", "Validasi SKK otomatis"],
+     highlights: ["Skor kecocokan yang transparan", "Filter berdasarkan keahlian", "Validasi SKK"],
     forRole: "semua",
   },
   {
-    emoji: "🏆", title: "Uji Kompetensi SKKNI", badge: "BNSP Ready",
-    desc: "Simulasi uji kompetensi BNSP dengan bank soal SKKNI untuk semua jenjang KKNI 1-9. Persiapkan sertifikasi Anda.",
+     emoji: "🏆", title: "Uji Kompetensi SKKNI", badge: "Persiapan Sertifikasi",
+     desc: "Simulasi uji kompetensi BNSP dengan materi SKKNI yang membantu Anda mempersiapkan sertifikasi sesuai bidang.",
     link: "/competency-test", color: "from-rose-600/30 to-pink-800/20 border-rose-500/30",
-    highlights: ["Bank soal per bidang & level", "Simulasi ujian BNSP resmi", "Penjelasan jawaban detail"],
+     highlights: ["Materi sesuai bidang dan level", "Simulasi ujian BNSP", "Penjelasan jawaban yang detail"],
     forRole: "tukang",
   },
   {
-    emoji: "🎓", title: "Bimtek & Pelatihan", badge: "15 Program Resmi",
-    desc: "15 program bimbingan teknis dari PUPR, Kemnaker, BNSP, dan lembaga terakreditasi. Online, offline, hybrid, self-paced.",
+     emoji: "🎓", title: "Bimtek & Pelatihan", badge: "Pelatihan Terarah",
+     desc: "Bimbingan teknis dari PUPR, Kemnaker, BNSP, dan lembaga terakreditasi dengan pilihan format belajar yang fleksibel.",
     link: "/bimtek", color: "from-teal-600/30 to-cyan-800/20 border-teal-500/30",
-    highlights: ["Sertifikat resmi BNSP/PUPR", "Online & tatap muka", "Naik level KKNI"],
+     highlights: ["Sertifikat resmi BNSP/PUPR", "Online dan tatap muka", "Pengembangan kompetensi"],
     forRole: "tukang",
   },
 ];
@@ -114,7 +110,7 @@ const AI_TOOLS = [
 const HOW_IT_WORKS_OWNER = [
   {
     step: "1", icon: "📋", title: "Posting Proyek + Estimasi RAB",
-    desc: "Deskripsikan kebutuhan Anda. Gunakan Estimator Biaya untuk hitung anggaran berbasis SNI 2025 sebelum negosiasi.",
+    desc: "Deskripsikan kebutuhan Anda. Gunakan Estimator Biaya untuk menyusun anggaran berbasis SNI sebelum negosiasi.",
     link: "/jobs/create", linkLabel: "Buat Proyek",
   },
   {
@@ -129,7 +125,7 @@ const HOW_IT_WORKS_OWNER = [
   },
   {
     step: "4", icon: "🔮", title: "Supervisi Real-time dengan Brain Project",
-    desc: "5 Agen AI memantau proyek Anda: compliance, sequence, budget health, progress, dan kualitas lapangan.",
+    desc: "Dukungan AI membantu memantau proyek Anda: kepatuhan, urutan pekerjaan, kesehatan anggaran, progres, dan kualitas lapangan.",
     link: "/dashboard", linkLabel: "Buka Dashboard",
   },
 ];
@@ -137,12 +133,12 @@ const HOW_IT_WORKS_OWNER = [
 const HOW_IT_WORKS_TUKANG = [
   {
     step: "1", icon: "👤", title: "Buat Profil Lengkap + SKK/KKNI",
-    desc: "Upload sertifikasi BNSP/KKNI, keahlian, dan portfolio proyek. Profil lengkap = 3× lebih sering dipilih.",
+    desc: "Upload sertifikasi BNSP/KKNI, keahlian, dan portofolio proyek agar calon klien dapat menilai kompetensi Anda dengan lebih mudah.",
     link: "/register", linkLabel: "Daftar Gratis",
   },
   {
     step: "2", icon: "🏆", title: "Tingkatkan Kompetensi via Bimtek",
-    desc: "Akses 15 program bimtek resmi PUPR/Kemnaker. Simulasi uji SKKNI. Naik level KKNI = tarif lebih tinggi.",
+    desc: "Temukan pelatihan resmi PUPR/Kemnaker dan simulasi uji SKKNI untuk terus mengembangkan kompetensi dan peluang kerja.",
     link: "/bimtek", linkLabel: "Lihat Bimtek",
   },
   {
@@ -159,7 +155,7 @@ const HOW_IT_WORKS_TUKANG = [
 
 const TRUST_SIGNALS = [
   { icon: "🏛️", label: "Terintegrasi dengan", value: "BNSP · Kemnaker · PUPR" },
-  { icon: "📋", label: "Standar konstruksi", value: "SNI · SKKNI · KKNI 1-9" },
+  { icon: "📋", label: "Standar konstruksi", value: "SNI · SKKNI · KKNI" },
   { icon: "🔐", label: "Keamanan transaksi", value: "Kontrak digital terenkripsi" },
   { icon: "⚡", label: "Powered by", value: "Multi-Agent AI System" },
 ];
@@ -191,7 +187,7 @@ export default function HomePage() {
           <div className="text-center max-w-4xl mx-auto">
             <Badge className="mb-5 bg-blue-500/20 text-blue-300 border-blue-500/30 text-sm px-4 py-1.5 gap-2">
               <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-              Marketplace Konstruksi + AI No.1 Indonesia
+              Marketplace Konstruksi Berbasis AI
             </Badge>
 
             <h1 className="text-4xl md:text-6xl font-bold mb-5 leading-tight tracking-tight">
@@ -207,7 +203,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-base md:text-lg text-slate-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Platform kerja konstruksi harian & borongan dengan <strong className="text-white">Multi-Agent AI</strong> —
+              Platform kerja konstruksi harian & borongan dengan <strong className="text-white">dukungan AI terintegrasi</strong> —
               dari matching tukang, supervisi kontrak, estimasi biaya RAB, hingga klinika teknis SNI.
             </p>
 
@@ -264,12 +260,12 @@ export default function HomePage() {
             {/* Trust Pills */}
             <div className="flex flex-wrap justify-center gap-3 text-sm">
               {(activeRole === "owner" ? [
-                { text: "850+ Tukang Terverifikasi BNSP" },
+                 { text: "Tenaga ahli dengan profil kompetensi" },
                 { text: "Kontrak Digital + Milestone Otomatis" },
                 { text: "Brain Project AI Supervision" },
                 { text: "Estimasi RAB Gratis" },
               ] : [
-                { text: "3+ Proyek/hari tersedia" },
+                 { text: "Peluang proyek yang relevan" },
                 { text: "Bimtek Bersertifikat PUPR/BNSP" },
                 { text: "Uji Kompetensi SKKNI" },
                 { text: "Profil SKK/KKNI Terverifikasi" },
@@ -319,20 +315,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Stats Bar ─────────────────────────────────────────────────────── */}
+      {/* ── Quality Signals ──────────────────────────────────────────────── */}
       <section className="py-10 bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { value: "10.000+", label: "Tukang & Mandor", icon: "👷", sub: "SKK Jenjang 1-9" },
-              { value: "50.000+", label: "Proyek Selesai", icon: "✅", sub: "Sejak 2023" },
-              { value: "15", label: "Program Bimtek", icon: "🎓", sub: "Bersertifikat resmi" },
-              { value: "6", label: "Agen AI Spesialis", icon: "🤖", sub: "Teknis Konstruksi" },
+              { label: "Tenaga ahli terarah", icon: "👷", sub: "Profil dan kompetensi lebih mudah ditinjau" },
+              { label: "Proyek lebih tertata", icon: "✅", sub: "Kebutuhan dan progres terdokumentasi" },
+              { label: "Belajar berkelanjutan", icon: "🎓", sub: "Materi dan pelatihan yang relevan" },
+              { label: "Pendampingan berbasis AI", icon: "🤖", sub: "Bantuan saat menyusun keputusan" },
             ].map((s) => (
               <div key={s.label} className="group">
                 <div className="text-3xl mb-1">{s.icon}</div>
-                <div className="text-3xl font-black text-primary mb-0.5">{s.value}</div>
-                <div className="font-semibold text-sm text-foreground">{s.label}</div>
+                <div className="font-semibold text-sm text-primary mb-0.5">{s.label}</div>
                 <div className="text-xs text-muted-foreground">{s.sub}</div>
               </div>
             ))}
@@ -344,7 +339,7 @@ export default function HomePage() {
       <section className="py-14 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-2">200+ Kategori Keahlian Tersedia</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-2">Kategori Keahlian yang Relevan</h2>
             <p className="text-muted-foreground">Klik kategori untuk mencari tenaga ahli terverifikasi</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
@@ -358,14 +353,14 @@ export default function HomePage() {
                   {cat.icon}
                 </div>
                 <span className="text-xs font-semibold text-center text-foreground">{cat.label}</span>
-                <span className="text-[10px] text-muted-foreground">{cat.count}</span>
+                <span className="text-[10px] text-muted-foreground">{cat.descriptor}</span>
               </button>
             ))}
           </div>
           <div className="text-center mt-5">
             <Link href="/experts">
               <Button variant="outline" className="gap-2">
-                Lihat Semua 200+ Keahlian <ChevronRight className="h-4 w-4" />
+                Lihat Semua Keahlian <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -425,11 +420,11 @@ export default function HomePage() {
           <div className="text-center mb-10">
             <Badge className="mb-4 bg-blue-500/20 text-blue-300 border-blue-500/30 text-sm px-4 py-1.5 gap-2">
               <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse inline-block" />
-              Didukung Multi-Agent AI System
+              Didukung AI terintegrasi
             </Badge>
             <h2 className="text-2xl md:text-3xl font-bold mb-2">Ekosistem Tools Konstruksi Cerdas</h2>
             <p className="text-slate-400 max-w-2xl mx-auto mb-5">
-              6 tools bertenaga AI khusus industri konstruksi Indonesia — semua terintegrasi dalam satu platform
+              Tools bertenaga AI untuk kebutuhan industri konstruksi Indonesia — semua terintegrasi dalam satu platform
             </p>
             <div className="flex justify-center">
               <div className="flex p-1 bg-white/10 rounded-xl gap-1">
@@ -487,7 +482,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-bold mb-2">Mengapa Memilih KerjaProyek?</h2>
-            <p className="text-muted-foreground">Satu-satunya platform konstruksi yang menggabungkan marketplace + AI supervision + edukasi teknis</p>
+            <p className="text-muted-foreground">Marketplace, supervisi berbasis AI, dan edukasi teknis dalam satu alur kerja</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
@@ -503,8 +498,8 @@ export default function HomePage() {
               {
                 icon: "🔮", title: "Supervisi Proyek AI", bg: "bg-purple-50",
                 points: [
-                  "Brain Project — 5 agen supervisi real-time",
-                  "Skor kesehatan proyek 0-100",
+                  "Brain Project dengan supervisi real-time",
+                  "Ringkasan kesehatan proyek",
                   "Deteksi risiko & anomali otomatis",
                   "Validasi sequence SNI konstruksi",
                 ],
@@ -512,9 +507,9 @@ export default function HomePage() {
               {
                 icon: "🎓", title: "Ekosistem Pengembangan", bg: "bg-green-50",
                 points: [
-                  "15 Bimtek resmi PUPR/Kemnaker/BNSP",
+                  "Bimtek resmi PUPR/Kemnaker/BNSP",
                   "Simulasi uji kompetensi SKKNI",
-                  "Klinika Teknis 6 Agen AI + SNI",
+                  "Klinika Teknis dengan dukungan AI + SNI",
                   "Materi K3, Struktur, MEP, Manajemen",
                 ],
               },
@@ -538,50 +533,30 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Comparison Table ───────────────────────────────────────────── */}
+      {/* ── Connected Workflow ─────────────────────────────────────────── */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-2">KerjaProyek vs Platform Lain</h2>
-            <p className="text-muted-foreground">Kami satu-satunya yang menggabungkan semua ini dalam satu ekosistem</p>
+            <h2 className="text-2xl md:text-3xl font-bold mb-2">Fitur yang Saling Terhubung</h2>
+            <p className="text-muted-foreground">Setiap fitur dirancang untuk mendukung perjalanan proyek dari pencarian hingga pengembangan kompetensi</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full bg-white rounded-2xl shadow-sm border overflow-hidden text-sm">
-              <thead>
-                <tr className="bg-primary text-white">
-                  <th className="text-left p-4 font-semibold">Fitur</th>
-                  <th className="text-center p-4 font-semibold">KerjaProyek</th>
-                  <th className="text-center p-4 font-normal text-white/70">Platform Lain</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  "AI Matching Tukang ↔ Proyek",
-                  "Supervisi Kontrak Real-time (Brain Project)",
-                  "Estimasi RAB berbasis SNI & AHSP",
-                  "Klinika Teknis 6 Agen AI",
-                  "15 Bimtek Bersertifikat Resmi",
-                  "Uji Kompetensi SKKNI / BNSP",
-                  "Job Board Terintegrasi (Loker.id, Jobstreet)",
-                  "Kontrak Digital + Milestone Otomatis",
-                  "Verifikasi SKK/KKNI Level 1-9",
-                ].map((f, i) => (
-                  <tr key={f} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                    <td className="p-3.5 font-medium">{f}</td>
-                    <td className="p-3.5 text-center">
-                      <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 rounded-full">
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span className="inline-flex items-center justify-center w-6 h-6 bg-red-50 rounded-full">
-                        <X className="h-3.5 w-3.5 text-red-400" />
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              { icon: "🎯", title: "Temukan kecocokan", desc: "Cari tenaga ahli atau proyek berdasarkan kebutuhan, lokasi, dan kompetensi yang relevan." },
+              { icon: "📝", title: "Susun pekerjaan", desc: "Dokumentasikan ruang lingkup, estimasi biaya, kontrak, dan tahapan kerja dengan lebih rapi." },
+              { icon: "🔮", title: "Pantau progres", desc: "Gunakan ringkasan proyek dan dukungan AI untuk mengenali risiko serta langkah berikutnya." },
+              { icon: "🎓", title: "Kembangkan kompetensi", desc: "Akses materi, pelatihan, dan persiapan sertifikasi untuk mendukung perkembangan profesional." },
+            ].map((item) => (
+              <Card key={item.title} className="border-border/60 shadow-sm">
+                <CardContent className="p-5 flex items-start gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-xl shrink-0">{item.icon}</div>
+                  <div>
+                    <h3 className="font-bold mb-1">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
@@ -611,11 +586,7 @@ export default function HomePage() {
                         </Link>
                       </div>
                       <p className="text-xs text-muted-foreground">{t.role} · {t.location}</p>
-                      <div className="flex mt-1">
-                        {Array.from({ length: t.rating }).map((_, i) => (
-                          <Star key={i} className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
-                        ))}
-                      </div>
+                      <p className="text-[11px] text-primary font-medium mt-1">Pengalaman menggunakan KerjaProyek</p>
                     </div>
                   </div>
                   <p className="text-muted-foreground text-sm leading-relaxed italic">"{t.text}"</p>
@@ -654,14 +625,14 @@ export default function HomePage() {
                   <p className="font-bold">AI Chatbot KerjaProyek</p>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-xs text-green-600 font-medium">Online sekarang · 6 Agen Aktif</span>
+                    <span className="text-xs text-green-600 font-medium">Online sekarang · Dukungan AI aktif</span>
                   </div>
                 </div>
               </div>
               <h3 className="text-xl font-bold mb-2">Ada Pertanyaan Teknis Konstruksi?</h3>
               <p className="text-muted-foreground text-sm mb-4">
                 Tanya apa saja — tebal pondasi, campuran beton, APD K3, biaya renovasi, cara urus PBG.
-                Dijawab 6 Agen AI spesialis dengan referensi SNI.
+                Dibantu AI spesialis dengan referensi SNI.
               </p>
               <div className="flex gap-2 flex-wrap justify-center md:justify-start">
                 <Link href="/chatbot">
@@ -679,9 +650,9 @@ export default function HomePage() {
             <div className="w-full md:w-80 bg-white rounded-2xl shadow-md border p-4">
               <div className="space-y-2">
                 {[
-                  { q: "Berapa tebal plat lantai bentang 4m?", agent: "🏗️ Agen Struktur" },
-                  { q: "APD wajib kerja di ketinggian >4m?", agent: "⛑️ Agen K3" },
-                  { q: "Biaya renovasi kamar mandi 3m²?", agent: "📚 Knowledge Base" },
+                  { q: "Bagaimana menentukan tebal plat lantai?", agent: "🏗️ Agen Struktur" },
+                  { q: "APD apa yang wajib untuk kerja di ketinggian?", agent: "⛑️ Agen K3" },
+                  { q: "Bagaimana menghitung biaya renovasi kamar mandi?", agent: "📚 Knowledge Base" },
                 ].map(item => (
                   <Link href="/chatbot" key={item.q}>
                     <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-muted/50 hover:bg-primary/5 border border-border/40 hover:border-primary/30 transition-colors cursor-pointer">

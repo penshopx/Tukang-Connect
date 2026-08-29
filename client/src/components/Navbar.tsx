@@ -36,21 +36,21 @@ export default function Navbar() {
     {
       label: "Konsultasi & AI",
       items: [
-        { href: "/chatbot", label: "AI Chatbot Helpdesk", icon: <Bot className="h-4 w-4 text-primary" />, badge: "6 Agen AI", highlight: true },
+        { href: "/chatbot", label: "AI Chatbot Helpdesk", icon: <Bot className="h-4 w-4 text-primary" />, badge: "Dukungan AI", highlight: true },
         { href: "/klinika", label: "Klinika Teknis", icon: <MessageSquare className="h-4 w-4 text-purple-500" />, badge: "Forum+AI" },
       ],
     },
     {
       label: "Alat Estimasi & Proyek",
       items: [
-        { href: "/cost-estimator", label: "Estimator Biaya RAB", icon: <Calculator className="h-4 w-4 text-amber-500" />, badge: "SNI 2025" },
-        { href: "/job-board", label: "Lowongan Konstruksi", icon: <Newspaper className="h-4 w-4 text-blue-500" />, badge: "25+ Jobs" },
+        { href: "/cost-estimator", label: "Estimator Biaya RAB", icon: <Calculator className="h-4 w-4 text-amber-500" />, badge: "Acuan SNI & AHSP" },
+        { href: "/job-board", label: "Lowongan Konstruksi", icon: <Newspaper className="h-4 w-4 text-blue-500" />, badge: "Peluang Baru" },
       ],
     },
     {
       label: "Edukasi & Sertifikasi",
       items: [
-        { href: "/bimtek", label: "Bimtek & Pelatihan", icon: <GraduationCap className="h-4 w-4 text-teal-500" />, badge: "15 Program" },
+        { href: "/bimtek", label: "Bimtek & Pelatihan", icon: <GraduationCap className="h-4 w-4 text-teal-500" />, badge: "Pelatihan Terarah" },
         { href: "/competency-test", label: "Uji Kompetensi SKKNI", icon: <Trophy className="h-4 w-4 text-rose-500" />, badge: "BNSP" },
         { href: "/study-materials", label: "Materi Belajar", icon: <BookOpen className="h-4 w-4 text-green-500" /> },
       ],
@@ -139,7 +139,7 @@ export default function Navbar() {
                         <Bot className="h-4 w-4 text-primary shrink-0" />
                         <div>
                           <p className="text-xs font-semibold text-primary">AI Helpdesk — Tanya Apa Saja</p>
-                          <p className="text-[10px] text-muted-foreground">6 agen AI spesialis konstruksi</p>
+                          <p className="text-[10px] text-muted-foreground">Dukungan AI spesialis konstruksi</p>
                         </div>
                         <div className="ml-auto w-2 h-2 bg-green-500 rounded-full animate-pulse shrink-0" />
                       </div>

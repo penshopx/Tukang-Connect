@@ -18,7 +18,7 @@ export default function Footer() {
             </div>
             <p className="text-sm text-gray-400 max-w-sm">
               Platform marketplace kerja konstruksi Indonesia — menghubungkan owner/boher dengan tukang, 
-              mandor, dan tenaga ahli SKK jenjang 1–9 untuk pekerjaan harian maupun borongan.
+               mandor, dan tenaga ahli dengan beragam kompetensi untuk pekerjaan harian maupun borongan.
             </p>
           </div>
           <div>
@@ -41,7 +41,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-500">
-          © 2025 KerjaProyek. Platform Marketplace Kerja Konstruksi Indonesia
+           KerjaProyek — Platform Marketplace Kerja Konstruksi Indonesia
         </div>
       </div>
     </footer>

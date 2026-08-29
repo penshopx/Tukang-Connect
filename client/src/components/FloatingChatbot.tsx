@@ -32,7 +32,7 @@ export default function FloatingChatbot() {
                 <p className="text-white text-sm font-semibold">AI Assistant</p>
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  <p className="text-blue-100 text-xs">Online · 6 Agen Aktif</p>
+                   <p className="text-blue-100 text-xs">Online · Dukungan AI aktif</p>
                 </div>
               </div>
             </div>
