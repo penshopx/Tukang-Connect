@@ -323,6 +323,26 @@ describe("API routes when database is unreachable", () => {
     });
   });
 
+  // ── GET /api/auth/user ─────────────────────────────────────────────────────
+  // This authenticated session lookup is used when restoring a session after
+  // login.  Its storage failure must keep the same safe response contract as
+  // the other routes handled by the global error handler.
+
+  describe("GET /api/auth/user", () => {
+    it("returns HTTP 503 with a structured DB_UNAVAILABLE response without raw error details", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockRejectedValue(dbError);
+
+      const res = await agent.get("/api/auth/user");
+
+      expect(res.status).toBe(503);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual(GLOBAL_DB_UNAVAILABLE_RESPONSE);
+      expect(res.body).not.toHaveProperty("stack");
+      expect(res.body).not.toHaveProperty("message");
+    });
+  });
+
   // ── GET /api/jobs ─────────────────────────────────────────────────────────
   // No try/catch in the route — the async wrapper propagates the error to the
   // global handler which returns a retryable 503 DB_UNAVAILABLE response.
