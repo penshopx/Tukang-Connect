@@ -2012,6 +2012,44 @@ app.get("/api/salary-reference", (_req, res) => {
   });
 });
 
+type ExpressRouteLayer = {
+  match: (path: string) => boolean;
+  route?: {
+    methods?: Record<string, boolean>;
+  };
+};
+
+const apiRouteLayers: ExpressRouteLayer[] = ((app as any)._router?.stack ?? []).filter(
+  (layer: ExpressRouteLayer) => layer.route && typeof layer.match === "function",
+);
+
+function getAllowedApiMethods(path: string): string[] {
+  const allowed = new Set<string>();
+
+  for (const layer of apiRouteLayers) {
+    if (!layer.match(path)) continue;
+    for (const [method, enabled] of Object.entries(layer.route?.methods ?? {})) {
+      if (enabled && method !== "_all") allowed.add(method.toUpperCase());
+    }
+  }
+
+  if (allowed.has("GET")) allowed.add("HEAD");
+  return [...allowed].sort();
+}
+
+// Keep API clients from receiving the React shell (or Express HTML errors).
+// A known path with the wrong method is 405; a path absent from the route table
+// is 404. This must run before the built-app SPA fallback below.
+app.use("/api", (req, res) => {
+  const allowedMethods = getAllowedApiMethods(req.originalUrl.split("?")[0]);
+  if (allowedMethods.length > 0) {
+    res.set("Allow", allowedMethods.join(", "));
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  res.status(404).json({ error: "Not found" });
+});
+
 // Serve React frontend when dist/public exists
 if (isBuiltApp) {
   app.use(express.static(publicDir));
@@ -2079,4 +2117,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(status).json({ error: "Service temporarily unavailable" });
 });
 
-export { app, getSessionConfiguration, getSessionOptions };
+export {
+  app,
+  getSessionConfiguration,
+  getSessionOptions,
+  reportSessionPruningMonitoringEvent,
+};

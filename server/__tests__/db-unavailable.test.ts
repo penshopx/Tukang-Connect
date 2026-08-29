@@ -54,7 +54,7 @@ const FAKE_USER = {
 // listener expected by pool.on("error", ...) in app.ts.
 
 vi.mock("../storage.js", () => ({
-  pool: { on: vi.fn() },
+  pool: { on: vi.fn(), query: vi.fn() },
   storage: {
     getUserByEmail:         vi.fn(),
     getUserById:            vi.fn(),
@@ -115,8 +115,12 @@ vi.mock("../storage.js", () => ({
 
 // Import real app AFTER vi.mock (hoisting guarantees the mock is registered
 // before the module graph resolves, so app.ts picks up the mocked storage).
-import { storage } from "../storage.js";
-import { app, getSessionConfiguration } from "../app.js";
+import { pool, storage } from "../storage.js";
+import {
+  app,
+  getSessionConfiguration,
+  reportSessionPruningMonitoringEvent,
+} from "../app.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -547,5 +551,93 @@ describe("API routes when database is unreachable", () => {
       expect(res.body).not.toHaveProperty("message");
       expect(Object.keys(res.body).sort()).toEqual(["error"]);
     });
+  });
+});
+
+describe("API error boundary contract", () => {
+  beforeEach(() => {
+    vi.mocked(pool.query).mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns JSON 404 for an unknown API path", async () => {
+    const res = await request(app).get("/api/does-not-exist");
+
+    expect(res.status).toBe(404);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.headers.allow).toBeUndefined();
+    expect(res.body).toEqual({ error: "Not found" });
+  });
+
+  it("returns JSON 405 for an unsupported method on a known API endpoint", async () => {
+    const res = await request(app).post("/api/health");
+
+    expect(res.status).toBe(405);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.headers.allow).toBe("GET, HEAD");
+    expect(res.body).toEqual({ error: "Method not allowed" });
+  });
+
+  it("returns JSON 405 for an unsupported method on a non-health API endpoint", async () => {
+    const res = await request(app).post("/api/salary-reference");
+
+    expect(res.status).toBe(405);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.headers.allow).toBe("GET, HEAD");
+    expect(res.body).toEqual({ error: "Method not allowed" });
+  });
+
+  it("returns the documented DB_UNAVAILABLE health response", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(pool.query).mockRejectedValueOnce(dbError);
+
+    const res = await request(app).get("/api/health");
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({
+      status: "degraded",
+      code: "DB_UNAVAILABLE",
+      error: "Database sedang tidak dapat dijangkau",
+    });
+  });
+
+  it("returns the documented SESSION_PRUNING_UNAVAILABLE health response", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.mocked(pool.query).mockResolvedValueOnce({ rows: [{ "?column?": 1 }] } as any);
+    reportSessionPruningMonitoringEvent({
+      type: "session_pruning_incident_started",
+      incidentId: "session-pruning-test",
+      consecutiveFailures: 3,
+      errorMessage: "test failure",
+      occurredAt: "2026-08-29T15:00:00.000Z",
+    });
+
+    try {
+      const res = await request(app).get("/api/health");
+
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual({
+        status: "degraded",
+        code: "SESSION_PRUNING_UNAVAILABLE",
+        error: "Pembersihan sesi sedang tertunda",
+        sessionPruning: {
+          status: "degraded",
+          incidentId: "session-pruning-test",
+          consecutiveFailures: 3,
+          startedAt: "2026-08-29T15:00:00.000Z",
+        },
+      });
+    } finally {
+      reportSessionPruningMonitoringEvent({
+        type: "session_pruning_incident_recovered",
+        incidentId: "session-pruning-test",
+        consecutiveFailures: 3,
+        occurredAt: "2026-08-29T15:01:00.000Z",
+      });
+    }
   });
 });

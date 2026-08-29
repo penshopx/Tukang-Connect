@@ -162,6 +162,105 @@ Supervisi kontrak aktif real-time (skor 0-100):
 - `GET /api/admin/status` · `GET /api/admin/profiles`
 - `POST /api/admin/verify/:id` · `GET /api/analytics/summary`
 
+## Kontrak Error API
+
+Route API mengembalikan error dalam JSON dan tidak menyertakan stack trace, detail koneksi, nama tabel, atau pesan database mentah. Integrator sebaiknya membaca HTTP status terlebih dahulu, lalu memakai field `error` untuk pesan yang dapat ditampilkan atau dicatat. Endpoint health juga menambahkan `status`, `code`, dan metadata monitoring sesuai kondisinya.
+
+### 503 — layanan sementara tidak tersedia (boleh dicoba ulang)
+
+Status `503` menandakan gangguan sementara yang dapat dicoba ulang. Gunakan retry dengan exponential backoff dan batas percobaan. Untuk request `POST`/`PUT`, pastikan hasil request sebelumnya belum berhasil sebelum mengirim ulang agar tidak membuat operasi ganda.
+
+Untuk login dan pendaftaran:
+
+```json
+{
+  "error": "Layanan sedang tidak tersedia. Silakan coba lagi."
+}
+```
+
+Untuk route lain yang gagal karena database/storage:
+
+```json
+{
+  "code": "DB_UNAVAILABLE",
+  "error": "Database sedang tidak dapat dijangkau. Silakan coba lagi sebentar."
+}
+```
+
+`GET /api/health` adalah pengecualian yang memang membawa status monitoring:
+
+```json
+{
+  "status": "degraded",
+  "code": "DB_UNAVAILABLE",
+  "error": "Database sedang tidak dapat dijangkau"
+}
+```
+
+Saat database tersedia tetapi pembersihan sesi sedang terganggu, health check mengembalikan:
+
+```json
+{
+  "status": "degraded",
+  "code": "SESSION_PRUNING_UNAVAILABLE",
+  "error": "Pembersihan sesi sedang tertunda",
+  "sessionPruning": {
+    "status": "degraded",
+    "incidentId": "session-pruning-...",
+    "consecutiveFailures": 3,
+    "startedAt": "2026-08-29T15:00:00.000Z"
+  }
+}
+```
+
+Kedua respons health tersebut tetap berarti layanan perlu dipantau/dicoba ulang, tetapi `SESSION_PRUNING_UNAVAILABLE` bukan bukti database sedang mati.
+
+### 4xx — request tidak dapat diproses (jangan retry otomatis)
+
+Status `4xx` menunjukkan masalah pada request atau hak akses dan biasanya tidak akan berubah dengan retry yang sama. Perbaiki request atau minta tindakan pengguna:
+
+- `400` — payload tidak valid atau aturan bisnis dilanggar
+- `401` — belum terautentikasi atau sesi tidak berlaku
+- `403` — tidak memiliki izin
+- `404` — resource tidak ditemukan
+- `405` — path API dikenali, tetapi method tidak didukung. Header `Allow` berisi method yang tersedia, misalnya `Allow: GET, HEAD`. Bentuk responsnya:
+
+  ```json
+  {
+    "error": "Method not allowed"
+  }
+  ```
+
+- `409` — konflik state/resource; muat ulang data sebelum mencoba lagi
+
+Unknown `/api/*` paths return `404` JSON rather than the frontend HTML shell:
+
+```json
+{
+  "error": "Not found"
+}
+```
+
+Bentuk responsnya adalah:
+
+```json
+{
+  "error": "Pesan kesalahan yang aman untuk pengguna"
+}
+```
+
+### 500 — kegagalan aplikasi (jangan retry membabi buta)
+
+Kegagalan aplikasi yang bukan outage database menggunakan status `500` dan respons generik berikut:
+
+```json
+{
+  "error": "Service temporarily unavailable"
+}
+```
+
+Jangan mengandalkan isi pesan 500 untuk diagnosis dan jangan menampilkan detail internal kepada pengguna. Diagnosis dilakukan melalui log server/monitoring, bukan dari respons API.
+
 ## Integrasi Fitur di Frontend
 
 | Halaman | Fitur AI/Integrasi |
