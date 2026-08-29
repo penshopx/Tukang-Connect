@@ -2,6 +2,18 @@ import { QueryClient } from "@tanstack/react-query";
 
 export const queryClient = new QueryClient();
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -18,7 +30,11 @@ export async function apiRequest(
   const response = await fetch(url, options);
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || "Request failed");
+    throw new ApiRequestError(
+      error.error || "Request failed",
+      response.status,
+      error.code
+    );
   }
   return response;
 }

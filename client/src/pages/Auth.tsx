@@ -6,6 +6,35 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLogin, useRegister } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequestError } from "@/lib/queryClient";
+
+const SERVICE_UNAVAILABLE_MESSAGE = "Layanan sedang tidak tersedia. Silakan tunggu sebentar dan coba lagi.";
+
+type AuthError = {
+  title: string;
+  description: string;
+};
+
+function getAuthError(error: unknown, action: "masuk" | "daftar"): AuthError {
+  const requestError = error instanceof ApiRequestError ? error : null;
+  const errorMessage = error instanceof Error ? error.message : "";
+  const isServiceUnavailable =
+    requestError?.status === 503 ||
+    requestError?.code === "DB_UNAVAILABLE" ||
+    /layanan sedang tidak tersedia|database.*tidak dapat dijangkau/i.test(errorMessage);
+
+  if (isServiceUnavailable) {
+    return {
+      title: "Layanan Tidak Tersedia",
+      description: SERVICE_UNAVAILABLE_MESSAGE,
+    };
+  }
+
+  return {
+    title: action === "masuk" ? "Gagal masuk" : "Gagal daftar",
+    description: errorMessage || "Terjadi kesalahan. Silakan coba lagi.",
+  };
+}
 
 // Replit SVG logo mark
 function ReplitIcon({ className }: { className?: string }) {
@@ -20,6 +49,7 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [showPass, setShowPass] = useState(false);
+  const [authError, setAuthError] = useState<AuthError | null>(null);
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -34,10 +64,20 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
     const params = new URLSearchParams(window.location.search);
     const errorParam = params.get("error");
     if (errorParam === "auth_failed") {
-      toast({ title: "Login Gagal", description: "Autentikasi Replit gagal. Silakan coba lagi.", variant: "destructive" });
+      const error = {
+        title: "Login Gagal",
+        description: "Autentikasi Replit gagal. Silakan coba lagi.",
+      };
+      setAuthError(error);
+      toast({ ...error, variant: "destructive" });
       window.history.replaceState({}, "", window.location.pathname);
     } else if (errorParam === "db_unavailable") {
-      toast({ title: "Layanan Tidak Tersedia", description: "Database sedang tidak dapat dijangkau. Silakan tunggu sebentar dan coba lagi.", variant: "destructive" });
+      const error = {
+        title: "Layanan Tidak Tersedia",
+        description: "Database sedang tidak dapat dijangkau. Silakan tunggu sebentar dan coba lagi.",
+      };
+      setAuthError(error);
+      toast({ ...error, variant: "destructive" });
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [toast]);
@@ -49,6 +89,7 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     if (mode === "login") {
       login(
         { email: form.email, password: form.password },
@@ -57,7 +98,11 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
             toast({ title: "Berhasil masuk!" });
             navigate(user?.onboardingCompleted === false ? "/onboarding" : "/dashboard");
           },
-          onError: (err) => toast({ title: "Gagal masuk", description: err.message, variant: "destructive" }),
+          onError: (err) => {
+            const error = getAuthError(err, "masuk");
+            setAuthError(error);
+            toast({ ...error, variant: "destructive" });
+          },
         }
       );
     } else {
@@ -66,7 +111,11 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
           toast({ title: "Akun berhasil dibuat!" });
           navigate("/onboarding");
         },
-        onError: (err) => toast({ title: "Gagal daftar", description: err.message, variant: "destructive" }),
+        onError: (err) => {
+          const error = getAuthError(err, "daftar");
+          setAuthError(error);
+          toast({ ...error, variant: "destructive" });
+        },
       });
     }
   };
@@ -91,6 +140,17 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {authError && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                <p className="font-semibold">{authError.title}</p>
+                <p>{authError.description}</p>
+              </div>
+            )}
+
             {/* Replit OAuth login */}
             <div className="mb-4">
               <a href="/api/auth/replit" className="block w-full">
