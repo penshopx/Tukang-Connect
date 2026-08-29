@@ -77,7 +77,20 @@ export function useUpdateRole() {
       const res = await apiRequest("PUT", "/api/users/me/role", { role });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (result: { role?: string }) => {
+      // Update role-dependent UI immediately. The navbar and profile page use
+      // separate cached user queries, so invalidation alone can leave either
+      // surface showing the old role until its refetch completes.
+      if (result?.role) {
+        const updateCachedRole = (current: { role?: string } | null | undefined) =>
+          current ? { ...current, role: result.role } : current;
+
+        qc.setQueryData(["/api/auth/user"], updateCachedRole);
+        qc.setQueryData(["/api/me"], updateCachedRole);
+      }
+
+      // Revalidate both shapes so the optimistic cache update cannot drift
+      // from the persisted user record.
       qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
       qc.invalidateQueries({ queryKey: ["/api/me"] });
     },
