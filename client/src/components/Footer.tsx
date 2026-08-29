@@ -3,15 +3,15 @@ import { HardHat } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300 mt-auto">
+    <footer className="bg-gradient-to-br from-slate-800 via-indigo-950 to-blue-950 text-gray-300 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-4 mb-5">
-              <div className="bg-slate-950 p-2.5 rounded-2xl shadow-sm">
+              <div className="bg-gradient-to-br from-slate-700 via-indigo-800 to-blue-900 p-2.5 rounded-2xl shadow-sm">
                 <HardHat className="h-14 w-14 text-orange-500" strokeWidth={2.25} />
               </div>
-              <span className="font-extrabold text-5xl text-white tracking-[0.04em] leading-[0.82]">
+              <span className="bg-gradient-to-r from-white via-sky-200 to-blue-300 bg-clip-text text-transparent font-extrabold text-5xl tracking-[0.04em] leading-[0.82]">
                 <span className="block">KERJA</span>
                 <span className="block">PROYEK</span>
               </span>

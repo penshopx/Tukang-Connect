@@ -121,14 +121,14 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-indigo-950 to-blue-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-4 mb-4">
-            <div className="bg-white p-3 rounded-3xl shadow-lg">
+            <div className="bg-gradient-to-br from-white via-slate-100 to-sky-100 p-3 rounded-3xl shadow-lg">
               <HardHat className="h-16 w-16 text-orange-500" strokeWidth={2.25} />
             </div>
-            <span className="font-extrabold text-5xl text-sky-300 tracking-[0.04em] leading-[0.82] text-left">
+            <span className="bg-gradient-to-r from-sky-200 via-cyan-300 to-violet-300 bg-clip-text text-transparent font-extrabold text-5xl tracking-[0.04em] leading-[0.82] text-left">
               <span className="block">KERJA</span>
               <span className="block">PROYEK</span>
             </span>
