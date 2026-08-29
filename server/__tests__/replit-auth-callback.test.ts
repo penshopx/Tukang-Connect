@@ -309,7 +309,8 @@ describe("GET /api/auth/replit/callback — Replit OAuth callback", () => {
       vi.mocked(storage.getUserByReplitId).mockRejectedValueOnce(dbErr);
       const res = await request(app).get("/api/auth/replit/callback");
       expect(res.status).toBe(302);
-      expect(res.headers.location).toContain("/login?error=db_unavailable");
+      expect(res.headers.location).toBe("/login?error=db_unavailable");
+      expect(res.headers.location).not.toContain("auth_failed");
     });
 
     it("does not leave the user with an authenticated session", async () => {

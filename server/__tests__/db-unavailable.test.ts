@@ -23,6 +23,8 @@ const dbError = Object.assign(
   { code: "ETIMEDOUT" }
 );
 
+const DB_UNAVAILABLE_MESSAGE = "Layanan sedang tidak tersedia. Silakan coba lagi.";
+
 // ─── Fake user for establishing an authenticated session ──────────────────────
 
 // Plain-text password used in login calls; FAKE_USER.password is the bcrypt hash.
@@ -140,9 +142,7 @@ describe("API routes when database is unreachable", () => {
 
       expect(res.status).toBe(503);
       expect(res.headers["content-type"]).toMatch(/application\/json/);
-      expect(res.body).toHaveProperty("error");
-      expect(typeof res.body.error).toBe("string");
-      expect(res.body.error.length).toBeGreaterThan(0);
+      expect(res.body).toEqual({ error: DB_UNAVAILABLE_MESSAGE });
     });
 
     it("does NOT expose a stack trace or raw Error fields in the response", async () => {
@@ -154,6 +154,30 @@ describe("API routes when database is unreachable", () => {
 
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
+    });
+  });
+
+  // ── POST /api/register ─────────────────────────────────────────────────────
+  // The first account lookup is a database operation and must produce the same
+  // user-facing outage response as login when it cannot be completed.
+
+  describe("POST /api/register", () => {
+    it("returns HTTP 503 with a user-friendly JSON error when the DB is down", async () => {
+      vi.mocked(storage.getUserByEmail).mockRejectedValue(dbError);
+
+      const res = await request(app)
+        .post("/api/register")
+        .send({
+          username: "newuser",
+          email: "newuser@test.com",
+          password: "password123",
+          fullName: "New User",
+          role: "pelanggan",
+        });
+
+      expect(res.status).toBe(503);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual({ error: DB_UNAVAILABLE_MESSAGE });
     });
   });
 
