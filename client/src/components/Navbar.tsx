@@ -66,11 +66,11 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-primary shrink-0">
-            <div className="bg-primary text-white p-1.5 rounded-lg">
-              <HardHat className="h-5 w-5" />
+          <Link href="/" className="flex items-center gap-3 font-bold shrink-0">
+            <div className="bg-slate-950 text-sky-300 p-2 rounded-xl shadow-sm">
+              <HardHat className="h-7 w-7" strokeWidth={2.25} />
             </div>
-            <span className="hidden sm:block">KerjaProyek</span>
+            <span className="hidden sm:block text-primary text-xl lg:text-2xl font-extrabold tracking-[0.04em]">KERJAPROYEK</span>
           </Link>
 
           {/* Desktop Nav */}
