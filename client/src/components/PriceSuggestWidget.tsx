@@ -8,7 +8,7 @@ interface Props {
   category: string;
   location: string;
   budget?: string;
-  onApply?: (value: number) => void;
+  onApply?: (value: string) => void;
 }
 
 export default function PriceSuggestWidget({ category, location, budget, onApply }: Props) {
@@ -17,7 +17,7 @@ export default function PriceSuggestWidget({ category, location, budget, onApply
 
   const handleSuggest = () => {
     if (!category || !location) return;
-    mutate({ category, location, existingBudget: budget ? Number(budget) : undefined });
+    mutate({ category, location, existingBudget: budget || undefined });
     setOpen(true);
   };
 
@@ -82,7 +82,7 @@ export default function PriceSuggestWidget({ category, location, budget, onApply
               size="sm"
               variant="outline"
               className="w-full text-xs mt-1"
-              onClick={() => onApply(data.adjustedMid)}
+              onClick={() => onApply(String(data.adjustedMid))}
             >
               Gunakan Harga Rekomendasi ({formatCurrency(data.adjustedMid)})
             </Button>

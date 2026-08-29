@@ -1,5 +1,6 @@
 import { storage } from "./storage.js";
 import type { Job, Profile } from "../shared/types.js";
+import { addMoney, allocateMoneyPercentage, compareMoney, formatIdrInteger, moneyToBigInt, type Money, type MoneyLike } from "../shared/money.js";
 
 const LOCATION_MAP: Record<string, string> = {
   "jakarta selatan": "jakarta", "jakarta utara": "jakarta", "jakarta barat": "jakarta",
@@ -96,7 +97,7 @@ const MILESTONE_TEMPLATES: Record<string, Array<{ title: string; pct: number; de
   ],
 };
 
-function getDefaultMilestones(budget: number): Array<{ title: string; pct: number; desc: string; days: number }> {
+function getDefaultMilestones(_budget: MoneyLike): Array<{ title: string; pct: number; desc: string; days: number }> {
   return [
     { title: "Uang Muka", pct: 25, desc: "Pembayaran uang muka dimulainya pekerjaan.", days: 3 },
     { title: "Progres 50%", pct: 40, desc: "Pekerjaan mencapai 50% sesuai scope.", days: 14 },
@@ -138,12 +139,12 @@ function kkniScore(job: Job, profile: Profile): number {
   const level = parseInt(profile.kkniLevel.replace("Level ", "").split(" ")[0]) || 1;
   const budget = job.budget;
   let targetLevel = 1;
-  if (budget >= 500_000_000) targetLevel = 7;
-  else if (budget >= 200_000_000) targetLevel = 6;
-  else if (budget >= 100_000_000) targetLevel = 5;
-  else if (budget >= 50_000_000) targetLevel = 4;
-  else if (budget >= 20_000_000) targetLevel = 3;
-  else if (budget >= 5_000_000) targetLevel = 2;
+  if (compareMoney(budget, 500_000_000) >= 0) targetLevel = 7;
+  else if (compareMoney(budget, 200_000_000) >= 0) targetLevel = 6;
+  else if (compareMoney(budget, 100_000_000) >= 0) targetLevel = 5;
+  else if (compareMoney(budget, 50_000_000) >= 0) targetLevel = 4;
+  else if (compareMoney(budget, 20_000_000) >= 0) targetLevel = 3;
+  else if (compareMoney(budget, 5_000_000) >= 0) targetLevel = 2;
   else targetLevel = 1;
   const diff = Math.abs(level - targetLevel);
   if (diff === 0) return 15;
@@ -193,7 +194,7 @@ export interface PriceSuggestion {
 export interface MilestoneSuggestion {
   title: string;
   description: string;
-  amount: number;
+  amount: Money;
   percentage: number;
   estimatedDays: number;
   dueDate: string;
@@ -213,7 +214,7 @@ export interface RankedApplication {
     verified: number;
   };
   badge: "Top Pick" | "Good Match" | "Consider" | null;
-  proposedBudget: number | null;
+  proposedBudget: Money | null;
   message: string | null;
   createdAt: string;
 }
@@ -277,7 +278,7 @@ export const PricingAgent = {
   name: "PricingAgent",
   description: "Menyarankan kisaran harga yang wajar berdasarkan kategori pekerjaan, lokasi, dan kondisi pasar.",
 
-  suggestPrice(category: string, location: string, existingBudget?: number): PriceSuggestion {
+  suggestPrice(category: string, location: string, existingBudget?: MoneyLike): PriceSuggestion {
     const base = PRICE_BASE[category] || PRICE_BASE["Lainnya"];
     const province = getProvince(location);
     const multiplier = LOCATION_MULTIPLIER[province] || LOCATION_MULTIPLIER[location.toLowerCase()] || 1.0;
@@ -292,8 +293,8 @@ export const PricingAgent = {
     tips.push("Harga ini belum termasuk material jika tidak disebutkan dalam kontrak.");
     tips.push("Negosiasi harga boleh dilakukan, namun hati-hati dengan penawaran terlalu jauh di bawah minimum.");
     if (existingBudget) {
-      if (existingBudget < adjustedMin) tips.push("⚠️ Anggaran yang Anda masukkan di bawah kisaran pasar — bisa sulit menarik tenaga ahli berkualitas.");
-      else if (existingBudget > adjustedMax * 5) tips.push("✅ Anggaran Anda sangat kompetitif untuk menarik tenaga ahli terbaik.");
+      if (compareMoney(existingBudget, adjustedMin) < 0) tips.push("⚠️ Anggaran yang Anda masukkan di bawah kisaran pasar — bisa sulit menarik tenaga ahli berkualitas.");
+      else if (compareMoney(existingBudget, adjustedMax * 5) > 0) tips.push("✅ Anggaran Anda sangat kompetitif untuk menarik tenaga ahli terbaik.");
     }
 
     return {
@@ -315,13 +316,34 @@ export const MilestoneAgent = {
   name: "MilestoneAgent",
   description: "Auto-generate rencana milestone pembayaran berdasarkan jenis pekerjaan, anggaran, dan estimasi durasi.",
 
-  generateMilestones(category: string, budget: number, startDate?: string): MilestoneSuggestion[] {
-    const template = MILESTONE_TEMPLATES[category] || getDefaultMilestones(budget);
+  generateMilestones(category: string, budget: MoneyLike, startDate?: string): MilestoneSuggestion[] {
+    const configuredTemplate = MILESTONE_TEMPLATES[category] || getDefaultMilestones(budget);
+    const budgetValue = moneyToBigInt(budget);
+    // A persisted milestone must be positive. For a budget smaller than the
+    // normal number of phases, collapse deterministically to the final
+    // handover phase rather than emitting zero-value rows.
+    const template = budgetValue < BigInt(configuredTemplate.length)
+      ? [{ ...configuredTemplate[configuredTemplate.length - 1], pct: 100 }]
+      : configuredTemplate;
     const start = startDate ? new Date(startDate) : new Date();
     let currentDate = new Date(start);
 
-    return template.map((t) => {
-      const amount = Math.round((t.pct / 100) * budget);
+    let allocated = 0n;
+    return template.map((t, index) => {
+      const remainingPhases = BigInt(template.length - index - 1);
+      let amountValue: bigint;
+      if (index === template.length - 1) {
+        amountValue = budgetValue - allocated;
+      } else {
+        const proportional = BigInt(allocateMoneyPercentage(budget, t.pct));
+        const maximumForPhase = budgetValue - allocated - remainingPhases;
+        // Reserve at least one unit for every later phase while keeping this
+        // phase positive, even when percentage flooring would produce zero.
+        amountValue = proportional < 1n ? 1n : proportional;
+        if (amountValue > maximumForPhase) amountValue = maximumForPhase;
+      }
+      const amount = amountValue.toString();
+      allocated += BigInt(amount);
       const dueDate = new Date(currentDate);
       dueDate.setDate(dueDate.getDate() + t.days);
       currentDate = new Date(dueDate);
@@ -371,10 +393,11 @@ export const ApplicationRankingAgent = {
       }
 
       if (app.proposedBudget) {
-        const ratio = app.proposedBudget / job.budget;
-        if (ratio >= 0.7 && ratio <= 1.0) budgetFitPts = 20;
-        else if (ratio > 1.0 && ratio <= 1.2) budgetFitPts = 15;
-        else if (ratio > 0.5 && ratio < 0.7) budgetFitPts = 10;
+        const proposed = moneyToBigInt(app.proposedBudget);
+        const budget = moneyToBigInt(job.budget);
+        if (proposed * 10n >= budget * 7n && proposed <= budget) budgetFitPts = 20;
+        else if (proposed > budget && proposed * 10n <= budget * 12n) budgetFitPts = 15;
+        else if (proposed * 10n > budget * 5n && proposed * 10n < budget * 7n) budgetFitPts = 10;
         else budgetFitPts = 5;
       } else {
         budgetFitPts = 12;
@@ -557,15 +580,16 @@ export const ContractComplianceAgent = {
     const findings: AgentFinding[] = [];
     let deduction = 0;
 
-    const milestoneTotal = milestones.reduce((sum, m) => sum + m.amount, 0);
-    const diff = Math.abs(milestoneTotal - contract.totalValue);
-    const diffPct = contract.totalValue > 0 ? (diff / contract.totalValue) * 100 : 0;
+    const milestoneTotal = milestones.reduce((sum, m) => sum + moneyToBigInt(m.amount), 0n);
+    const contractValue = moneyToBigInt(contract.totalValue);
+    const diff = milestoneTotal >= contractValue ? milestoneTotal - contractValue : contractValue - milestoneTotal;
+    const diffPct = Number(diff * 1000n / contractValue) / 10;
     if (diffPct > 5) {
       deduction += 25;
       findings.push({
         agentName: this.name, severity: "critical", code: "CC-001",
         title: "Nilai milestone tidak sesuai kontrak",
-        detail: `Total milestone Rp ${milestoneTotal.toLocaleString("id")} vs nilai kontrak Rp ${contract.totalValue.toLocaleString("id")} (selisih ${diffPct.toFixed(1)}%).`,
+        detail: `Total milestone Rp ${formatIdrInteger(milestoneTotal)} vs nilai kontrak Rp ${formatIdrInteger(contract.totalValue)} (selisih ${diffPct.toFixed(1)}%).`,
         recommendation: "Sesuaikan jumlah milestone agar totalnya tepat sama dengan nilai kontrak.",
       });
     } else if (diffPct > 1) {
@@ -573,7 +597,7 @@ export const ContractComplianceAgent = {
       findings.push({
         agentName: this.name, severity: "warning", code: "CC-002",
         title: "Selisih kecil antara milestone dan nilai kontrak",
-        detail: `Selisih Rp ${diff.toLocaleString("id")} (${diffPct.toFixed(1)}%) mungkin disebabkan pembulatan.`,
+        detail: `Selisih Rp ${formatIdrInteger(diff)} (${diffPct.toFixed(1)}%) mungkin disebabkan pembulatan.`,
         recommendation: "Pastikan total milestone persis sama dengan nilai kontrak untuk menghindari sengketa.",
       });
     }
@@ -765,39 +789,40 @@ export const BudgetHealthAgent = {
     let deduction = 0;
 
     const rules = BUDGET_RULES[job?.category || ""] || BUDGET_RULES["default"];
-    const total = contract.totalValue;
+    const total = moneyToBigInt(contract.totalValue);
+    const percentOfTotal = (amount: MoneyLike) => Number(moneyToBigInt(amount) * 1000n / total) / 10;
 
     if (milestones.length === 0) {
       return { score: 50, findings, summary: "Belum ada milestone untuk dianalisis.", label: "Belum Ada Data" };
     }
 
     const firstMs = milestones[0];
-    const dpPct = total > 0 ? (firstMs.amount / total) * 100 : 0;
+    const dpPct = percentOfTotal(firstMs.amount);
     if (dpPct > rules.maxDpPct) {
       deduction += 25;
       findings.push({
         agentName: this.name, severity: "critical", code: "BH-001",
         title: `Uang muka terlalu besar (${dpPct.toFixed(0)}%)`,
-        detail: `Milestone pertama "${firstMs.title}" senilai Rp ${firstMs.amount.toLocaleString("id")} (${dpPct.toFixed(1)}% dari total). Batas wajar untuk ${job?.category}: ${rules.maxDpPct}%.`,
+        detail: `Milestone pertama "${firstMs.title}" senilai Rp ${formatIdrInteger(firstMs.amount)} (${dpPct.toFixed(1)}% dari total). Batas wajar untuk ${job?.category}: ${rules.maxDpPct}%.`,
         recommendation: "Kurangi uang muka di bawah batas wajar untuk melindungi klien dari risiko wanprestasi.",
       });
     }
 
     for (const ms of milestones) {
-      const pct = total > 0 ? (ms.amount / total) * 100 : 0;
+      const pct = percentOfTotal(ms.amount);
       if (pct > rules.maxSinglePct && ms.id !== firstMs.id) {
         deduction += 15;
         findings.push({
           agentName: this.name, severity: "warning", code: "BH-002",
           title: `Milestone "${ms.title}" terlalu besar (${pct.toFixed(0)}%)`,
-          detail: `Nilai Rp ${ms.amount.toLocaleString("id")} (${pct.toFixed(1)}% dari total) melampaui batas wajar ${rules.maxSinglePct}%.`,
+          detail: `Nilai Rp ${formatIdrInteger(ms.amount)} (${pct.toFixed(1)}% dari total) melampaui batas wajar ${rules.maxSinglePct}%.`,
           recommendation: "Pecah milestone besar menjadi 2-3 tahap yang lebih kecil untuk kontrol kualitas lebih baik.",
         });
       }
     }
 
     const lastMs = milestones[milestones.length - 1];
-    const finalPct = total > 0 ? (lastMs.amount / total) * 100 : 0;
+    const finalPct = percentOfTotal(lastMs.amount);
     if (finalPct < rules.minFinalPct && milestones.length > 1) {
       deduction += 15;
       findings.push({
@@ -808,8 +833,8 @@ export const BudgetHealthAgent = {
       });
     }
 
-    const approved = milestones.filter((m) => m.status === "approved").reduce((sum, m) => sum + m.amount, 0);
-    const approvedPct = total > 0 ? (approved / total) * 100 : 0;
+    const approved = milestones.filter((m) => m.status === "approved").reduce((sum, m) => sum + moneyToBigInt(m.amount), 0n);
+    const approvedPct = Number(approved * 1000n / total) / 10;
     const remaining = total - approved;
 
     if (approvedPct > 80 && milestones.some((m) => m.status !== "approved")) {
@@ -817,7 +842,7 @@ export const BudgetHealthAgent = {
       findings.push({
         agentName: this.name, severity: "warning", code: "BH-004",
         title: `${approvedPct.toFixed(0)}% anggaran sudah dibayar tapi pekerjaan belum selesai`,
-        detail: `Rp ${approved.toLocaleString("id")} sudah dibayarkan, sisa Rp ${remaining.toLocaleString("id")} untuk pekerjaan yang belum selesai.`,
+        detail: `Rp ${formatIdrInteger(approved)} sudah dibayarkan, sisa Rp ${formatIdrInteger(remaining)} untuk pekerjaan yang belum selesai.`,
         recommendation: "Pastikan semua pekerjaan yang tersisa selesai dan diterima sebelum pembayaran final.",
       });
     }

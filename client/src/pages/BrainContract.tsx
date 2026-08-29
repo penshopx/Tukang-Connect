@@ -2,7 +2,7 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useUser } from "@/hooks/useUser";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { addMoney, formatCurrency, formatDate, subtractMoney } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -144,7 +144,7 @@ export default function BrainContractPage() {
   const approvedMs = data.milestones?.filter((m: any) => m.status === "approved").length || 0;
   const totalMs = data.milestones?.length || 0;
   const progressPct = totalMs > 0 ? Math.round((approvedMs / totalMs) * 100) : 0;
-  const totalPaid = data.milestones?.filter((m: any) => m.status === "approved").reduce((s: number, m: any) => s + m.amount, 0) || 0;
+  const totalPaid = addMoney(...(data.milestones?.filter((m: any) => m.status === "approved").map((m: any) => m.amount) || []));
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -358,11 +358,11 @@ export default function BrainContractPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Sisa</span>
-            <span className="font-bold text-amber-600">{formatCurrency((data.contract?.totalValue || 0) - totalPaid)}</span>
+            <span className="font-bold text-amber-600">{formatCurrency(subtractMoney(data.contract?.totalValue || "0", totalPaid))}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-sm font-medium">Total Kontrak</span>
-            <span className="font-bold">{formatCurrency(data.contract?.totalValue || 0)}</span>
+            <span className="font-bold">{formatCurrency(data.contract?.totalValue || "0")}</span>
           </div>
         </CardContent>
       </Card>

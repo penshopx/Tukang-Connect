@@ -45,7 +45,7 @@ export function useMyJobs(clientId?: number) {
 export function useCreateJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => {
+    mutationFn: async (data: Record<string, unknown> & { budget: string }) => {
       const res = await apiRequest("POST", "/api/jobs", data);
       return res.json();
     },
@@ -90,7 +90,7 @@ export function useApplyJob() {
     }: {
       jobId: number;
       message?: string;
-      proposedBudget?: number;
+      proposedBudget?: string;
     }) => {
       const res = await apiRequest("POST", `/api/jobs/${jobId}/apply`, {
         message,

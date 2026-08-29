@@ -37,8 +37,7 @@ export interface Job {
   title: string;
   description: string;
   category: string;
-  /** Normalized from PostgreSQL BIGINT by the storage layer. */
-  budget: number;
+  budget: string;
   location: string;
   status: "open" | "in_progress" | "completed" | "cancelled";
   clientId: number;
@@ -52,8 +51,7 @@ export interface JobApplication {
   jobId: number;
   applicantId: number;
   message: string | null;
-  /** Normalized from PostgreSQL BIGINT by the storage layer. */
-  proposedBudget: number | null;
+  proposedBudget: string | null;
   status: "pending" | "accepted" | "rejected" | "withdrawn";
   createdAt: string;
 }
@@ -65,8 +63,7 @@ export interface Contract {
   workerId: number;
   title: string;
   description: string;
-  /** Normalized from PostgreSQL BIGINT by the storage layer. */
-  totalValue: number;
+  totalValue: string;
   status: "draft" | "active" | "completed" | "disputed";
   clientSigned: boolean;
   workerSigned: boolean;
@@ -80,7 +77,7 @@ export interface Milestone {
   contractId: number;
   title: string;
   description: string;
-  amount: number;
+  amount: string;
   status: "pending" | "in_progress" | "submitted" | "approved" | "rejected";
   dueDate: string | null;
   completedAt: string | null;

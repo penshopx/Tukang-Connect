@@ -8,7 +8,7 @@ import { useAgentMilestones } from "@/hooks/useAgents";
 interface MilestoneSuggestion {
   title: string;
   description: string;
-  amount: number;
+  amount: string;
   percentage: number;
   estimatedDays: number;
   dueDate: string;
@@ -16,7 +16,7 @@ interface MilestoneSuggestion {
 
 interface Props {
   category: string;
-  budget: number;
+  budget: string;
   startDate?: string;
   onApply?: (milestones: MilestoneSuggestion[]) => void;
 }

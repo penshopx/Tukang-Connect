@@ -16,7 +16,7 @@ import { useUser, useNotifications } from "@/hooks/useUser";
 import { useJobs, useMyJobs } from "@/hooks/useJobs";
 import { useContracts, useAnalytics, useDashboardMilestones, useExperts } from "@/hooks/useExperts";
 import {
-  formatCurrency, formatRelativeTime, formatDate, getInitials,
+  addMoney, formatCurrency, formatRelativeTime, formatDate, getInitials,
   getStatusColor, getStatusLabel
 } from "@/lib/utils";
 import AgentInsightsPanel from "@/components/AgentInsightsPanel";
@@ -114,11 +114,11 @@ export default function Dashboard() {
 
   const tukangEarnings = contracts
     .filter((c: any) => c.status === "completed" && c.workerId === user?.id)
-    .reduce((sum: number, c: any) => sum + (c.totalValue || 0), 0);
+    .reduce((sum: bigint, c: any) => addMoney(sum, c.totalValue), 0n);
 
   const ownerSpent = contracts
     .filter((c: any) => c.status === "completed" && c.clientId === user?.id)
-    .reduce((sum: number, c: any) => sum + (c.totalValue || 0), 0);
+    .reduce((sum: bigint, c: any) => addMoney(sum, c.totalValue), 0n);
 
   const profileData = (experts as any[]).find((e: any) => e.userId === user?.id);
   const { score: profileScore, missing: profileMissing } = getProfileCompleteness(profileData, user);

@@ -23,9 +23,9 @@ vi.mock("pg", () => ({
 
 import { startupReady, storage } from "../storage.js";
 
-const BIGINT_BUDGET = "900000000000000";
-const BIGINT_PROPOSED_BUDGET = "750000000000000";
-const BIGINT_CONTRACT_VALUE = "825000000000000";
+const BIGINT_BUDGET = "9007199254740993";
+const BIGINT_PROPOSED_BUDGET = "9223372036854775807";
+const BIGINT_CONTRACT_VALUE = "9223372036854775807";
 const JOB_ROW = {
   id: 21,
   title: "Renovasi rumah",
@@ -84,7 +84,7 @@ describe("storage monetary value normalization", () => {
           title: JOB_ROW.title,
           description: JOB_ROW.description,
           category: JOB_ROW.category,
-          budget: Number(BIGINT_BUDGET),
+          budget: BIGINT_BUDGET,
           location: JOB_ROW.location,
           status: "open",
           clientId: JOB_ROW.client_id,
@@ -94,7 +94,7 @@ describe("storage monetary value normalization", () => {
     ],
     [
       "updateJob",
-      () => storage.updateJob(JOB_ROW.id, { budget: Number(BIGINT_BUDGET) }),
+      () => storage.updateJob(JOB_ROW.id, { budget: BIGINT_BUDGET }),
     ],
   ])("normalizes BIGINT budget values returned by %s", async (_method, operation) => {
     poolMock.query.mockResolvedValueOnce({ rows: [JOB_ROW] });
@@ -102,8 +102,27 @@ describe("storage monetary value normalization", () => {
     const result = await operation();
     const jobs = Array.isArray(result) ? result : [result];
 
-    expect(jobs[0]?.budget).toBe(Number(BIGINT_BUDGET));
-    expect(typeof jobs[0]?.budget).toBe("number");
+    expect(jobs[0]?.budget).toBe(BIGINT_BUDGET);
+    expect(typeof jobs[0]?.budget).toBe("string");
+  });
+
+  it("canonicalizes internal monetary writes before querying PostgreSQL", async () => {
+    poolMock.query.mockResolvedValueOnce({ rows: [{ ...JOB_ROW, budget: "5" }] });
+    await storage.createJob({
+      title: JOB_ROW.title, description: JOB_ROW.description, category: JOB_ROW.category,
+      budget: "0005" as any, location: JOB_ROW.location, status: "open",
+      clientId: JOB_ROW.client_id, workerId: null, deadline: null,
+    });
+    expect(poolMock.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO jobs"), expect.arrayContaining(["5"]));
+  });
+
+  it("rejects invalid internal monetary writes before querying PostgreSQL", async () => {
+    await expect(storage.createJob({
+      title: JOB_ROW.title, description: JOB_ROW.description, category: JOB_ROW.category,
+      budget: "1.5" as any, location: JOB_ROW.location, status: "open",
+      clientId: JOB_ROW.client_id, workerId: null, deadline: null,
+    })).rejects.toThrow("Storage operation failed: createJob");
+    expect(poolMock.query).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -119,7 +138,7 @@ describe("storage monetary value normalization", () => {
           jobId: APPLICATION_ROW.job_id,
           applicantId: APPLICATION_ROW.applicant_id,
           message: APPLICATION_ROW.message,
-          proposedBudget: Number(BIGINT_PROPOSED_BUDGET),
+          proposedBudget: BIGINT_PROPOSED_BUDGET,
           status: "pending",
         }),
     ],
@@ -128,7 +147,7 @@ describe("storage monetary value normalization", () => {
       () =>
         storage.updateApplication(
           APPLICATION_ROW.id,
-          { proposedBudget: Number(BIGINT_PROPOSED_BUDGET) },
+           { proposedBudget: BIGINT_PROPOSED_BUDGET },
         ),
     ],
   ])("normalizes BIGINT proposed budgets returned by %s", async (_method, operation) => {
@@ -137,8 +156,8 @@ describe("storage monetary value normalization", () => {
     const result = await operation();
     const applications = Array.isArray(result) ? result : [result];
 
-    expect(applications[0]?.proposedBudget).toBe(Number(BIGINT_PROPOSED_BUDGET));
-    expect(typeof applications[0]?.proposedBudget).toBe("number");
+    expect(applications[0]?.proposedBudget).toBe(BIGINT_PROPOSED_BUDGET);
+    expect(typeof applications[0]?.proposedBudget).toBe("string");
   });
 
   it.each([
@@ -154,7 +173,7 @@ describe("storage monetary value normalization", () => {
           workerId: CONTRACT_ROW.worker_id,
           title: CONTRACT_ROW.title,
           description: CONTRACT_ROW.description,
-          totalValue: Number(BIGINT_CONTRACT_VALUE),
+          totalValue: BIGINT_CONTRACT_VALUE,
           status: "active",
           clientSigned: CONTRACT_ROW.client_signed,
           workerSigned: CONTRACT_ROW.worker_signed,
@@ -167,7 +186,7 @@ describe("storage monetary value normalization", () => {
       () =>
         storage.updateContract(
           CONTRACT_ROW.id,
-          { totalValue: Number(BIGINT_CONTRACT_VALUE) },
+           { totalValue: BIGINT_CONTRACT_VALUE },
         ),
     ],
   ])("normalizes BIGINT contract values returned by %s", async (_method, operation) => {
@@ -176,8 +195,8 @@ describe("storage monetary value normalization", () => {
     const result = await operation();
     const contracts = Array.isArray(result) ? result : [result];
 
-    expect(contracts[0]?.totalValue).toBe(Number(BIGINT_CONTRACT_VALUE));
-    expect(typeof contracts[0]?.totalValue).toBe("number");
+    expect(contracts[0]?.totalValue).toBe(BIGINT_CONTRACT_VALUE);
+    expect(typeof contracts[0]?.totalValue).toBe("string");
   });
 });
 

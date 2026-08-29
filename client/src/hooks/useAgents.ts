@@ -31,14 +31,14 @@ export function useAgentInsights(enabled = true) {
 
 export function useAgentPriceSuggest() {
   return useMutation({
-    mutationFn: (data: { category: string; location: string; existingBudget?: number }) =>
+    mutationFn: (data: { category: string; location: string; existingBudget?: string }) =>
       apiRequest("POST", "/api/agents/price-suggest", data),
   });
 }
 
 export function useAgentMilestones() {
   return useMutation({
-    mutationFn: (data: { category: string; budget: number; startDate?: string }) =>
+    mutationFn: (data: { category: string; budget: string; startDate?: string }) =>
       apiRequest("POST", "/api/agents/milestones", data),
   });
 }

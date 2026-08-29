@@ -65,8 +65,12 @@ export default function JobDetail() {
   const pendingApps = applications.filter((a: any) => a.status === "pending");
 
   const handleApply = () => {
+    if (proposedBudget && !/^[1-9]\d*$/.test(proposedBudget)) {
+      toast({ title: "Tawaran harus berupa nominal positif", variant: "destructive" });
+      return;
+    }
     applyJob(
-      { jobId, message: applyMsg || undefined, proposedBudget: proposedBudget ? Number(proposedBudget) : undefined },
+      { jobId, message: applyMsg || undefined, proposedBudget: proposedBudget || undefined },
       {
         onSuccess: () => {
           toast({ title: "Lamaran terkirim!", description: "Klien akan meninjau lamaran Anda." });
@@ -298,10 +302,12 @@ export default function JobDetail() {
                           <div>
                             <label className="text-sm font-medium mb-1 block">Tawaran Harga (Opsional)</label>
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="\d*"
                               placeholder="500000"
                               value={proposedBudget}
-                              onChange={(e) => setProposedBudget(e.target.value)}
+                              onChange={(e) => setProposedBudget(e.target.value.replace(/\D/g, ""))}
                             />
                           </div>
                           <Button className="w-full" onClick={handleApply} disabled={applying}>

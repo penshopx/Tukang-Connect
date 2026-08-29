@@ -47,6 +47,12 @@ vi.mock("../storage.js", () => ({
     getAnalytics: vi.fn(),
   },
   withTransaction: vi.fn(),
+  contractFromRow: vi.fn((row) => ({
+    id: row.id, jobId: row.job_id, clientId: row.client_id, workerId: row.worker_id,
+    title: row.title, description: row.description, totalValue: String(row.total_value),
+    status: row.status, clientSigned: row.client_signed, workerSigned: row.worker_signed,
+    createdAt: row.created_at, startDate: row.start_date, endDate: row.end_date,
+  })),
 }));
 
 import { pool, storage, withTransaction } from "../storage.js";
@@ -98,7 +104,7 @@ const JOB = {
   title: "Renovasi rumah",
   description: "Renovasi dapur dan ruang tamu",
   category: "Renovasi",
-  budget: 100000000,
+  budget: "100000000",
   location: "Jakarta",
   status: "open",
   clientId: OWNER.id,
@@ -114,7 +120,7 @@ const CONTRACT = {
   workerId: 13,
   title: "Kontrak renovasi",
   description: JOB.description,
-  totalValue: 50000000,
+  totalValue: "50000000",
   status: "active",
   clientSigned: true,
   workerSigned: false,
@@ -128,7 +134,7 @@ const MILESTONE = {
   contractId: CONTRACT.id,
   title: "Pekerjaan awal",
   description: "Persiapan dan mobilisasi",
-  amount: 10000000,
+  amount: "10000000",
   status: "in_progress",
   dueDate: "2024-02-01T00:00:00.000Z",
   completedAt: null,
@@ -215,8 +221,8 @@ describe("Express route smoke tests", () => {
       });
     });
 
-    it("returns a numeric budget that can be sent to the update endpoint", async () => {
-      const jobFromGet = { ...JOB, budget: 250000000 };
+    it("returns a canonical string budget that can be sent to the update endpoint", async () => {
+      const jobFromGet = { ...JOB, budget: "250000000" };
       vi.mocked(storage.getJobById)
         .mockResolvedValueOnce(jobFromGet as any)
         .mockResolvedValueOnce(jobFromGet as any);
@@ -226,7 +232,7 @@ describe("Express route smoke tests", () => {
       const getResponse = await request(app).get(`/api/jobs/${JOB.id}`);
 
       expect(getResponse.status).toBe(200);
-      expect(getResponse.body.budget).toEqual(expect.any(Number));
+      expect(getResponse.body.budget).toEqual(expect.any(String));
 
       const agent = await authenticatedAgent(OWNER);
       const updateResponse = await agent
@@ -264,22 +270,61 @@ describe("Express route smoke tests", () => {
         path: "/api/agents/milestones",
         payload: { category: "Renovasi", budget: "100000000" },
       },
-    ])("rejects string budget values at $path", async ({ path, payload }) => {
+    ])("accepts canonical string budget values at $path", async ({ path, payload }) => {
       const response = await request(app).post(path).send(payload);
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(200);
     });
 
-    it("returns milestone budgets and amounts as numbers", async () => {
+    it("returns milestone budgets and amounts as canonical strings", async () => {
       const response = await request(app)
         .post("/api/agents/milestones")
         .send({ category: "Renovasi", budget: 100000000 });
 
       expect(response.status).toBe(200);
-      expect(response.body.budget).toBe(100000000);
-      expect(response.body.budget).toEqual(expect.any(Number));
+      expect(response.body.budget).toBe("100000000");
+      expect(response.body.budget).toEqual(expect.any(String));
       expect(response.body.milestones.length).toBeGreaterThan(0);
-      expect(response.body.milestones[0].amount).toEqual(expect.any(Number));
+      expect(response.body.milestones[0].amount).toEqual(expect.any(String));
+    });
+
+    it("rejects unsafe numeric money literals while preserving large string values", async () => {
+      const unsafe = await request(app)
+        .post("/api/agents/milestones")
+        .send({ category: "Renovasi", budget: 9007199254740992 });
+      expect(unsafe.status).toBe(400);
+
+      const exact = await request(app)
+        .post("/api/agents/milestones")
+        .send({ category: "Renovasi", budget: "9223372036854775807" });
+      expect(exact.status).toBe(200);
+      expect(exact.body.budget).toBe("9223372036854775807");
+      const total = exact.body.milestones.reduce((sum: bigint, milestone: { amount: string }) => sum + BigInt(milestone.amount), 0n);
+      expect(total).toBe(9223372036854775807n);
+    });
+
+    it.each([
+      ["Renovasi", "1"],
+      ["Renovasi", "2"],
+      ["Renovasi", "3"],
+      ["Renovasi", "4"],
+      ["Renovasi", "5"],
+      ["Renovasi", "6"],
+      ["Renovasi", "7"],
+      ["Renovasi", "8"],
+      ["Renovasi", "9"],
+      ["Konstruksi Baru", "5"],
+      ["Konstruksi Baru", "6"],
+      ["Konstruksi Baru", "7"],
+      ["Konstruksi Baru", "8"],
+      ["Konstruksi Baru", "9"],
+    ])("generates only positive exact milestones for %s budget %s", async (category, budget) => {
+      const response = await request(app)
+        .post("/api/agents/milestones")
+        .send({ category, budget });
+      expect(response.status).toBe(200);
+      expect(response.body.milestones.every((milestone: { amount: string }) => BigInt(milestone.amount) >= 1n)).toBe(true);
+      expect(response.body.milestones.reduce((sum: bigint, milestone: { amount: string }) => sum + BigInt(milestone.amount), 0n)).toBe(BigInt(budget));
     });
   });
 
@@ -312,7 +357,7 @@ describe("Express route smoke tests", () => {
     });
 
     it("lists the signed-in user's contracts with participant summaries", async () => {
-      const contractFromGet = { ...CONTRACT, totalValue: 825000000000000 };
+      const contractFromGet = { ...CONTRACT, totalValue: "825000000000000" };
       vi.mocked(storage.getContracts).mockResolvedValueOnce([contractFromGet] as any);
       vi.mocked(storage.getUsers).mockResolvedValueOnce([
         OWNER,
@@ -330,7 +375,7 @@ describe("Express route smoke tests", () => {
           worker: { id: 13, fullName: "Route Worker" },
         },
       ]);
-      expect(response.body[0].totalValue).toEqual(expect.any(Number));
+      expect(response.body[0].totalValue).toEqual(expect.any(String));
       expect(storage.getContracts).toHaveBeenCalledWith(OWNER.id);
     });
 
@@ -417,7 +462,7 @@ describe("Express route smoke tests", () => {
           jobId: JOB.id,
           clientId: OTHER_WORKER.id,
           workerId: OWNER.id,
-          totalValue: 50000000,
+          totalValue: "50000000",
           status: "completed",
         });
 
@@ -432,17 +477,17 @@ describe("Express route smoke tests", () => {
         vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
         vi.mocked(storage.updateContract).mockResolvedValueOnce({
           ...CONTRACT,
-          totalValue: 60000000,
+          totalValue: "60000000",
         } as any);
 
         const agent = await authenticatedAgent(OWNER);
         const response = await agent
           .put(`/api/contracts/${CONTRACT.id}`)
-          .send({ totalValue: 60000000 });
+        .send({ totalValue: "60000000" });
 
         expect(response.status).toBe(200);
         expect(storage.updateContract).toHaveBeenCalledWith(CONTRACT.id, {
-          totalValue: 60000000,
+          totalValue: "60000000",
         });
       });
 
@@ -480,18 +525,18 @@ describe("Express route smoke tests", () => {
         vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
         vi.mocked(storage.updateContract).mockResolvedValueOnce({
           ...CONTRACT,
-          totalValue: 75000000,
+          totalValue: "75000000",
         } as any);
 
         const agent = await authenticatedAgent(ADMIN);
         const response = await agent
           .put(`/api/contracts/${CONTRACT.id}`)
-          .send({ totalValue: 75000000 });
+        .send({ totalValue: "75000000" });
 
         expect(response.status).toBe(200);
         expect(storage.updateContract).toHaveBeenCalledWith(
           CONTRACT.id,
-          { totalValue: 75000000 },
+          { totalValue: "75000000" },
         );
       });
 
@@ -788,7 +833,7 @@ describe("Express route smoke tests", () => {
         title: "Bangun rumah baru",
         description: "Pembangunan rumah satu lantai",
         category: "Konstruksi Baru",
-        budget: 250000000,
+        budget: "250000000",
         location: "Bandung",
         deadline: "2025-06-01",
       };
@@ -798,7 +843,7 @@ describe("Express route smoke tests", () => {
       };
       const changes = {
         title: "Renovasi rumah diperbarui",
-        budget: 125000000,
+        budget: "125000000",
       };
       const updatedJob = { ...JOB, ...changes };
 
@@ -842,7 +887,8 @@ describe("Express route smoke tests", () => {
       it.each([
         { payload: {}, label: "rejects missing required fields" },
         { payload: { ...newJobPayload, title: "   " }, label: "rejects blank required values" },
-        { payload: { ...newJobPayload, budget: "250000000" }, label: "rejects values with the wrong type" },
+        { payload: { ...newJobPayload, budget: true }, label: "rejects values with the wrong type" },
+        { payload: { ...newJobPayload, budget: 9_007_199_254_740_993 }, label: "rejects unsafe numeric money" },
         { payload: { ...newJobPayload, deadline: "not-a-date" }, label: "rejects invalid deadline values" },
         {
           payload: { ...newJobPayload, status: "completed" },
@@ -916,7 +962,8 @@ describe("Express route smoke tests", () => {
 
       it.each([
         { payload: { clientId: OWNER.id }, label: "rejects fields controlled by the server" },
-        { payload: { budget: "125000000" }, label: "rejects values with the wrong type" },
+        { payload: { budget: true }, label: "rejects values with the wrong type" },
+        { payload: { budget: 9_007_199_254_740_993 }, label: "rejects unsafe numeric money" },
         { payload: { title: "   " }, label: "rejects blank required values" },
         { payload: { deadline: "not-a-date" }, label: "rejects invalid deadline values" },
         { payload: { deadline: "2024-02-30" }, label: "rejects impossible calendar dates" },
@@ -944,7 +991,7 @@ describe("Express route smoke tests", () => {
         jobId: JOB.id,
         applicantId: WORKER.id,
         message: "Lamaran lama",
-        proposedBudget: 90000000,
+        proposedBudget: "90000000",
         status: "withdrawn",
         createdAt: "2024-01-04T00:00:00.000Z",
       };
@@ -970,7 +1017,7 @@ describe("Express route smoke tests", () => {
         const agent = await authenticatedAgent(WORKER);
         const response = await agent
           .post(`/api/jobs/${JOB.id}/apply`)
-          .send({ message: renewedApplication.message, proposedBudget: 95000000 });
+          .send({ message: renewedApplication.message, proposedBudget: "95000000" });
 
         expect(response.status).toBe(201);
         expect(response.body).toEqual(renewedApplication);
@@ -978,19 +1025,19 @@ describe("Express route smoke tests", () => {
           jobId: JOB.id,
           applicantId: WORKER.id,
           message: renewedApplication.message,
-          proposedBudget: 95000000,
+          proposedBudget: "95000000",
           status: "pending",
         });
         expect(storage.createApplication).toHaveBeenCalledOnce();
       });
 
-      it("rejects a proposed budget sent as a string", async () => {
+      it("rejects an unsafe numeric proposed budget", async () => {
         vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([] as any);
 
         const agent = await authenticatedAgent(WORKER);
         const response = await agent
           .post(`/api/jobs/${JOB.id}/apply`)
-          .send({ message: "Saya siap", proposedBudget: "95000000" });
+          .send({ message: "Saya siap", proposedBudget: 9_007_199_254_740_993 });
 
         expect(response.status).toBe(400);
         expect(response.body).toEqual({ error: "Nominal penawaran tidak valid" });
@@ -1022,7 +1069,7 @@ describe("Express route smoke tests", () => {
         };
         const changes = {
           message: "Pesan lamaran diperbarui",
-          proposedBudget: 95000000,
+          proposedBudget: "95000000",
         };
         const updatedApplication = { ...pendingApplication, ...changes };
         vi.mocked(storage.getApplicationById).mockResolvedValueOnce(pendingApplication as any);
@@ -1041,10 +1088,10 @@ describe("Express route smoke tests", () => {
         );
       });
 
-      it("returns a numeric proposed budget that can be sent to the update endpoint", async () => {
+      it("returns an exact proposed budget string that can be sent to the update endpoint", async () => {
         const applicationFromGet = {
           ...withdrawnApplication,
-          proposedBudget: 750000000000000,
+          proposedBudget: "9007199254740993",
           status: "pending",
         };
         vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([applicationFromGet] as any);
@@ -1058,7 +1105,7 @@ describe("Express route smoke tests", () => {
         const getResponse = await ownerAgent.get(`/api/jobs/${JOB.id}/applications`);
 
         expect(getResponse.status).toBe(200);
-        expect(getResponse.body[0].proposedBudget).toEqual(expect.any(Number));
+        expect(getResponse.body[0].proposedBudget).toEqual(expect.any(String));
 
         const workerAgent = await authenticatedAgent(WORKER);
         const updateResponse = await workerAgent
@@ -1216,6 +1263,31 @@ describe("Express route smoke tests", () => {
         expect(response.status).toBe(403);
         expect(response.body).toEqual({ error: "Forbidden" });
         expect(withTransaction).not.toHaveBeenCalled();
+      });
+
+      it("accepts using the transaction-locked negotiated budget", async () => {
+        const staleApplication = { id: 88, jobId: JOB.id, applicantId: WORKER.id, proposedBudget: "10", status: "pending" };
+        const lockedApplication = { id: 88, job_id: JOB.id, applicant_id: WORKER.id, proposed_budget: "9007199254740993", status: "pending" };
+        const lockedJob = { id: JOB.id, client_id: OWNER.id, category: JOB.category, title: JOB.title, description: JOB.description, budget: JOB.budget, deadline: null };
+        const client = { query: vi.fn()
+          .mockResolvedValueOnce({ rows: [lockedApplication] })
+          .mockResolvedValueOnce({ rows: [lockedJob] })
+          .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+          .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+          .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+          .mockResolvedValueOnce({ rows: [{ id: 99, job_id: JOB.id, client_id: OWNER.id, worker_id: WORKER.id, title: "locked", description: "locked", total_value: lockedApplication.proposed_budget, status: "active", client_signed: true, worker_signed: false, created_at: "", start_date: "", end_date: null }] })
+          .mockResolvedValue({ rows: [] }) };
+        const agent = await authenticatedAgent(OWNER);
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(staleApplication as any);
+        vi.mocked(storage.getUserById).mockResolvedValueOnce(WORKER as any);
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([] as any);
+        vi.mocked(storage.createNotification).mockResolvedValue({} as any);
+        vi.mocked(withTransaction).mockImplementation(async (callback: any) => callback(client));
+
+        const response = await agent.post(`/api/jobs/${JOB.id}/applications/${staleApplication.id}/accept`);
+        expect(response.status).toBe(200);
+        expect(client.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO contracts"), expect.arrayContaining([WORKER.id, lockedApplication.proposed_budget]));
       });
     });
   });

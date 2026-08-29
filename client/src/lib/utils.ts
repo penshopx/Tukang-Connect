@@ -5,13 +5,49 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
+export type MoneyLike = string | number | bigint;
+
+/**
+ * Converts a canonical integer monetary value without passing string values
+ * through JavaScript's floating-point number representation.
+ */
+export function moneyToBigInt(value: MoneyLike): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "string") {
+    if (!/^-?\d+$/.test(value)) {
+      throw new Error("Nilai uang harus berupa digit integer");
+    }
+    return BigInt(value);
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new Error("Nilai uang numerik harus berupa integer aman");
+  }
+  return BigInt(value);
+}
+
+export function addMoney(...values: MoneyLike[]): bigint {
+  return values.reduce((total, value) => total + moneyToBigInt(value), 0n);
+}
+
+export function subtractMoney(left: MoneyLike, right: MoneyLike): bigint {
+  return moneyToBigInt(left) - moneyToBigInt(right);
+}
+
+export function compareMoney(left: MoneyLike, right: MoneyLike): number {
+  const difference = subtractMoney(left, right);
+  return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+}
+
+export function formatCurrency(amount: MoneyLike): string {
+  const exactAmount = typeof amount === "string" || typeof amount === "bigint"
+    ? moneyToBigInt(amount)
+    : amount;
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(exactAmount);
 }
 
 export function formatDate(dateString: string): string {

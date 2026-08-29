@@ -17,6 +17,7 @@ import {
   type SessionPruningMonitoringEvent,
 } from "./sessionPruning.js";
 import type { User } from "../shared/types.js";
+import { canonicalMoney, compareMoney, formatIdrInteger } from "../shared/money.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,17 @@ const MIN_SESSION_SECRET_LENGTH = 32;
 
 const nonBlankString = z.string().refine((value) => value.trim().length > 0);
 const validDeadline = z.string().date().or(z.string().datetime({ offset: true }));
-const positiveMoney = z.number().finite().positive();
+const positiveMoney = z.union([
+  z.string(),
+  z.number().finite(),
+]).transform((value, ctx) => {
+  try {
+    return canonicalMoney(value);
+  } catch (error) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: (error as Error).message });
+    return z.NEVER;
+  }
+});
 const optionalNullablePositiveMoney = positiveMoney.nullable().optional();
 const updateJobSchema = z
   .object({
@@ -1424,18 +1435,34 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
   if (!application) return res.status(404).json({ error: "Application not found" });
   if (application.jobId !== jobId) return res.status(403).json({ error: "Forbidden" });
 
-  const budget = application.proposedBudget || job.budget;
   const startDate = new Date().toISOString();
   const workerUser = await storage.getUserById(application.applicantId);
-
-  const milestones = MilestoneAgent.generateMilestones(job.category, budget, startDate);
 
   // All core writes are atomic: partial failure rolls back and the client gets a
   // structured error instead of an inconsistent job/contract/milestone state.
   // The accept update is guarded with WHERE status = 'pending' so that a second
   // concurrent request for the same application finds 0 rows and returns a 409
   // rather than producing two accepted contracts.
-  const contract = await withTransaction(async (client) => {
+  const accepted = await withTransaction(async (client) => {
+    // Re-read both rows under lock so negotiated money and applicant identity
+    // cannot be stale between authorization and the lifecycle transition.
+    const lockedApplicationResult = await client.query(
+      "SELECT * FROM job_applications WHERE id = $1 FOR UPDATE",
+      [appId],
+    );
+    const lockedJobResult = await client.query(
+      "SELECT * FROM jobs WHERE id = $1 FOR UPDATE",
+      [jobId],
+    );
+    const lockedApplication = lockedApplicationResult.rows[0];
+    const lockedJob = lockedJobResult.rows[0];
+    if (!lockedApplication || !lockedJob || lockedApplication.job_id !== jobId || lockedJob.client_id !== req.session.userId!) {
+      const err: any = new Error("Application or job changed");
+      err.status = 409;
+      throw err;
+    }
+    const budget = canonicalMoney(lockedApplication.proposed_budget ?? lockedJob.budget);
+    const milestones = MilestoneAgent.generateMilestones(lockedJob.category, budget, startDate);
     const acceptResult = await client.query(
       "UPDATE job_applications SET status = 'accepted' WHERE id = $1 AND status = 'pending' RETURNING id",
       [appId]
@@ -1455,7 +1482,7 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
     // this returns 0 rows and we roll back with 409.
     const jobClaim = await client.query(
       "UPDATE jobs SET worker_id = $1, status = 'in_progress' WHERE id = $2 AND status = 'open' RETURNING id",
-      [application.applicantId, jobId]
+      [lockedApplication.applicant_id, jobId]
     );
     if (jobClaim.rowCount === 0) {
       const err: any = new Error("Job already assigned to another worker");
@@ -1466,19 +1493,21 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
       `INSERT INTO contracts (job_id, client_id, worker_id, title, description, total_value, status,
         client_signed, worker_signed, start_date, end_date)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [jobId, job.clientId, application.applicantId, `Kontrak: ${job.title}`, job.description,
-       budget, "active", true, false, startDate, job.deadline || null]
+       [jobId, lockedJob.client_id, lockedApplication.applicant_id, `Kontrak: ${lockedJob.title}`, lockedJob.description,
+       budget, "active", true, false, startDate, lockedJob.deadline || null]
     );
     const contract = contractFromRow(cr.rows[0]);
     for (const ms of milestones) {
+      const amount = canonicalMoney(ms.amount);
       await client.query(
         `INSERT INTO milestones (contract_id, title, description, amount, status, due_date, completed_at, notes)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [contract.id, ms.title, ms.description, ms.amount, "in_progress", ms.dueDate || null, null, null]
+        [contract.id, ms.title, ms.description, amount, "in_progress", ms.dueDate || null, null, null]
       );
     }
-    return contract;
+    return { contract, milestones };
   });
+  const { contract, milestones } = accepted;
 
   // Notifications are best-effort — a failure here should not undo the accepted contract
   await Promise.all([
@@ -1695,10 +1724,10 @@ app.get("/api/agents/brain-project/:jobId", requireAuth, async (req, res) => {
   let riskScore = 0;
   const riskFactors: Array<{ level: "high" | "medium" | "low"; label: string; detail: string }> = [];
 
-  if (job.budget < priceSuggestion.adjustedMin * 10) {
+  if (compareMoney(job.budget, priceSuggestion.adjustedMin * 10) < 0) {
     riskScore += 30;
-    riskFactors.push({ level: "high", label: "Anggaran di bawah pasaran", detail: `Anggaran Rp ${job.budget.toLocaleString("id")} tergolong rendah. Kisaran pasar: Rp ${priceSuggestion.adjustedMin.toLocaleString("id")} – ${priceSuggestion.adjustedMax.toLocaleString("id")} per unit.` });
-  } else if (job.budget < priceSuggestion.adjustedMid * 10) {
+    riskFactors.push({ level: "high", label: "Anggaran di bawah pasaran", detail: `Anggaran Rp ${formatIdrInteger(job.budget)} tergolong rendah. Kisaran pasar: Rp ${priceSuggestion.adjustedMin.toLocaleString("id")} – ${priceSuggestion.adjustedMax.toLocaleString("id")} per unit.` });
+  } else if (compareMoney(job.budget, priceSuggestion.adjustedMid * 10) < 0) {
     riskScore += 10;
     riskFactors.push({ level: "medium", label: "Anggaran sedikit di bawah median", detail: "Anggaran bisa membatasi pilihan tenaga ahli terbaik." });
   }

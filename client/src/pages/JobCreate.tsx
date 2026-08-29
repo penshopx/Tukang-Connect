@@ -49,10 +49,13 @@ export default function JobCreate() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.category) return toast({ title: "Pilih kategori", variant: "destructive" });
+    if (!/^[1-9]\d*$/.test(form.budget)) {
+      return toast({ title: "Anggaran harus berupa nominal positif", variant: "destructive" });
+    }
     createJob(
       {
         ...form,
-        budget: Number(form.budget),
+        budget: form.budget,
         deadline: form.deadline || null,
       },
       {
@@ -117,19 +120,20 @@ export default function JobCreate() {
               <div>
                 <label className="text-sm font-medium mb-1 block">Anggaran (Rp) *</label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
                   placeholder="50000000"
                   value={form.budget}
-                  onChange={(e) => update("budget", e.target.value)}
+                  onChange={(e) => update("budget", e.target.value.replace(/\D/g, ""))}
                   required
-                  min={0}
                 />
                 {/* Agent: Price Suggestion — muncul otomatis setelah kategori & lokasi diisi */}
                 <PriceSuggestWidget
                   category={form.category}
                   location={form.location}
                   budget={form.budget}
-                  onApply={(value) => update("budget", String(value))}
+                  onApply={(value) => update("budget", value)}
                 />
               </div>
               <div>

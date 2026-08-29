@@ -14,6 +14,7 @@ import type {
   Notification,
   Message,
 } from "../shared/types.js";
+import { canonicalMoney } from "../shared/money.js";
 
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -60,6 +61,18 @@ function nullableDatabaseNumber(value: unknown, field: string): number | null {
     : requiredDatabaseNumber(value, field);
 }
 
+function requiredDatabaseMoney(value: unknown, field: string): string {
+  try {
+    return canonicalMoney(value as string | number | bigint);
+  } catch (error) {
+    throw new Error(`Invalid monetary database value for ${field}: ${(error as Error).message}`);
+  }
+}
+
+function nullableDatabaseMoney(value: unknown, field: string): string | null {
+  return value === null || value === undefined ? null : requiredDatabaseMoney(value, field);
+}
+
 function userFromRow(r: any): User {
   return {
     id: r.id,
@@ -102,7 +115,7 @@ function jobFromRow(r: any): Job {
     title: r.title,
     description: r.description,
     category: r.category,
-    budget: requiredDatabaseNumber(r.budget, "jobs.budget"),
+    budget: requiredDatabaseMoney(r.budget, "jobs.budget"),
     location: r.location,
     status: r.status,
     clientId: r.client_id,
@@ -118,7 +131,7 @@ function applicationFromRow(r: any): JobApplication {
     jobId: r.job_id,
     applicantId: r.applicant_id,
     message: r.message,
-    proposedBudget: nullableDatabaseNumber(r.proposed_budget, "job_applications.proposed_budget"),
+    proposedBudget: nullableDatabaseMoney(r.proposed_budget, "job_applications.proposed_budget"),
     status: r.status,
     createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : r.created_at,
   };
@@ -132,7 +145,7 @@ export function contractFromRow(r: any): Contract {
     workerId: r.worker_id,
     title: r.title,
     description: r.description,
-    totalValue: requiredDatabaseNumber(r.total_value, "contracts.total_value"),
+    totalValue: requiredDatabaseMoney(r.total_value, "contracts.total_value"),
     status: r.status,
     clientSigned: r.client_signed,
     workerSigned: r.worker_signed,
@@ -148,7 +161,7 @@ function milestoneFromRow(r: any): Milestone {
     contractId: r.contract_id,
     title: r.title,
     description: r.description,
-    amount: requiredDatabaseNumber(r.amount, "milestones.amount"),
+    amount: requiredDatabaseMoney(r.amount, "milestones.amount"),
     status: r.status,
     dueDate: r.due_date instanceof Date ? r.due_date.toISOString() : r.due_date,
     completedAt: r.completed_at instanceof Date ? r.completed_at.toISOString() : r.completed_at,
@@ -517,7 +530,7 @@ const storageApi = {
     const r = await pool.query(
       `INSERT INTO jobs (title, description, category, budget, location, status, client_id, worker_id, deadline)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [data.title, data.description, data.category, data.budget, data.location,
+       [data.title, data.description, data.category, canonicalMoney(data.budget), data.location,
        data.status, data.clientId, data.workerId, data.deadline]
     );
     return jobFromRow(r.rows[0]);
@@ -532,7 +545,10 @@ const storageApi = {
       clientId: "client_id", workerId: "worker_id", deadline: "deadline",
     };
     for (const [key, col] of Object.entries(map)) {
-      if (key in data) { fields.push(`${col} = $${i++}`); values.push((data as any)[key]); }
+      if (key in data) {
+        fields.push(`${col} = $${i++}`);
+        values.push(key === "budget" ? canonicalMoney((data as any)[key]) : (data as any)[key]);
+      }
     }
     if (!fields.length) return storage.getJobById(id).then(j => j ?? null);
     values.push(id);
@@ -568,7 +584,7 @@ const storageApi = {
     const r = await pool.query(
       `INSERT INTO job_applications (job_id, applicant_id, message, proposed_budget, status)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [data.jobId, data.applicantId, data.message, data.proposedBudget, data.status]
+       [data.jobId, data.applicantId, data.message, data.proposedBudget === null ? null : canonicalMoney(data.proposedBudget), data.status]
     );
     return applicationFromRow(r.rows[0]);
   },
@@ -584,7 +600,11 @@ const storageApi = {
       status: "status", message: "message", proposedBudget: "proposed_budget",
     };
     for (const [key, col] of Object.entries(map)) {
-      if (key in data) { fields.push(`${col} = $${i++}`); values.push((data as any)[key]); }
+      if (key in data) {
+        fields.push(`${col} = $${i++}`);
+        const value = (data as any)[key];
+        values.push(key === "proposedBudget" && value !== null ? canonicalMoney(value) : value);
+      }
     }
     if (!fields.length) return storage.getApplicationById(id).then(a => a ?? null);
     values.push(id);
@@ -622,7 +642,7 @@ const storageApi = {
         client_signed, worker_signed, start_date, end_date)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [data.jobId, data.clientId, data.workerId, data.title, data.description,
-       data.totalValue, data.status, data.clientSigned, data.workerSigned,
+       canonicalMoney(data.totalValue), data.status, data.clientSigned, data.workerSigned,
        data.startDate, data.endDate]
     );
     return contractFromRow(r.rows[0]);
@@ -637,7 +657,10 @@ const storageApi = {
       startDate: "start_date", endDate: "end_date",
     };
     for (const [key, col] of Object.entries(map)) {
-      if (key in data) { fields.push(`${col} = $${i++}`); values.push((data as any)[key]); }
+      if (key in data) {
+        fields.push(`${col} = $${i++}`);
+        values.push(key === "totalValue" ? canonicalMoney((data as any)[key]) : (data as any)[key]);
+      }
     }
     if (!fields.length) return storage.getContractById(id).then(c => c ?? null);
     values.push(id);
@@ -661,7 +684,7 @@ const storageApi = {
     const r = await pool.query(
       `INSERT INTO milestones (contract_id, title, description, amount, status, due_date, completed_at, notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [data.contractId, data.title, data.description, data.amount, data.status,
+       [data.contractId, data.title, data.description, canonicalMoney(data.amount), data.status,
        data.dueDate, data.completedAt, data.notes]
     );
     return milestoneFromRow(r.rows[0]);
@@ -679,7 +702,10 @@ const storageApi = {
       status: "status", dueDate: "due_date", completedAt: "completed_at", notes: "notes",
     };
     for (const [key, col] of Object.entries(map)) {
-      if (key in data) { fields.push(`${col} = $${i++}`); values.push((data as any)[key]); }
+      if (key in data) {
+        fields.push(`${col} = $${i++}`);
+        values.push(key === "amount" ? canonicalMoney((data as any)[key]) : (data as any)[key]);
+      }
     }
     if (!fields.length) return storage.getMilestoneById(id).then(m => m ?? null);
     values.push(id);
@@ -865,7 +891,9 @@ const storageApi = {
       verifiedWorkers: profiles.rows.filter((p: any) => p.is_verified).length,
       totalContracts: contracts.rows.length,
       activeContracts: contracts.rows.filter((c: any) => c.status === "active").length,
-      totalRevenue: contracts.rows.reduce((s: number, c: any) => s + Number(c.total_value), 0),
+      totalRevenue: contracts.rows
+        .reduce((sum: bigint, c: any) => sum + BigInt(requiredDatabaseMoney(c.total_value, "contracts.total_value")), 0n)
+        .toString(),
     };
   },
 };

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUser } from "@/hooks/useUser";
 import { useJobs } from "@/hooks/useJobs";
-import { formatCurrency, formatRelativeTime, getStatusColor, getStatusLabel } from "@/lib/utils";
+import { compareMoney, formatCurrency, formatRelativeTime, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { JOB_CATEGORIES } from "@/lib/constants";
 
 // Deterministic match score based on job id (consistent per session)
@@ -53,8 +53,8 @@ export default function JobsPage() {
 
   // Sort jobs client-side
   const jobs = [...rawJobs].sort((a: any, b: any) => {
-    if (sort === "budget_high") return b.budget - a.budget;
-    if (sort === "budget_low") return a.budget - b.budget;
+    if (sort === "budget_high") return compareMoney(b.budget, a.budget);
+    if (sort === "budget_low") return compareMoney(a.budget, b.budget);
     if (sort === "match" && isTukang) return getMatchScore(b.id) - getMatchScore(a.id);
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });

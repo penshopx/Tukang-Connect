@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContract, useSignContract, useCompleteContract, useCreateReview } from "@/hooks/useExperts";
 import { useUser } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
+import { addMoney, formatCurrency, formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -56,8 +56,8 @@ export default function ContractDetail() {
   const completedMilestones = milestones.filter((m) => m.status === "approved").length;
   const totalMilestones = milestones.length;
   const progress = totalMilestones > 0 ? (completedMilestones / totalMilestones) * 100 : 0;
-  const earnedValue = milestones.filter((m) => m.status === "approved").reduce((sum: number, m: any) => sum + m.amount, 0);
-  const pendingValue = milestones.filter((m) => m.status !== "approved").reduce((sum: number, m: any) => sum + m.amount, 0);
+  const earnedValue = addMoney(...milestones.filter((m) => m.status === "approved").map((m: any) => m.amount));
+  const pendingValue = addMoney(...milestones.filter((m) => m.status !== "approved").map((m: any) => m.amount));
   const allDone = totalMilestones > 0 && milestones.every((m) => m.status === "approved" || m.status === "rejected");
   const canComplete = isClient && contract.status === "active" && (totalMilestones === 0 || allDone);
 
@@ -83,10 +83,14 @@ export default function ContractDetail() {
   };
 
   const handleAddMilestone = async () => {
+    if (!/^[1-9]\d*$/.test(milestoneForm.amount)) {
+      toast({ title: "Jumlah harus berupa nominal positif", variant: "destructive" });
+      return;
+    }
     try {
       await apiRequest("POST", `/api/contracts/${id}/milestones`, {
         ...milestoneForm,
-        amount: Number(milestoneForm.amount),
+        amount: milestoneForm.amount,
         status: "in_progress",
       });
       toast({ title: "Milestone ditambahkan" });
@@ -230,7 +234,7 @@ export default function ContractDetail() {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-sm font-medium mb-1 block">Jumlah (Rp)</label>
-                            <Input type="number" value={milestoneForm.amount} onChange={(e) => setMilestoneForm(f => ({ ...f, amount: e.target.value }))} placeholder="5000000" />
+                            <Input type="text" inputMode="numeric" pattern="\d*" value={milestoneForm.amount} onChange={(e) => setMilestoneForm(f => ({ ...f, amount: e.target.value.replace(/\D/g, "") }))} placeholder="5000000" />
                           </div>
                           <div>
                             <label className="text-sm font-medium mb-1 block">Tenggat Waktu</label>
