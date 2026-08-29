@@ -1,0 +1,216 @@
+/**
+ * Route smoke tests
+ *
+ * These tests exercise the exported Express app directly.  Storage and the
+ * database pool are mocked so the suite validates route registration,
+ * middleware ordering, response shapes, and authorization without starting a
+ * server or reading/writing production data.
+ */
+
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import request from "supertest";
+
+vi.mock("../storage.js", () => ({
+  pool: {
+    on: vi.fn(),
+    query: vi.fn(),
+  },
+  storage: {
+    getUserByEmail: vi.fn(),
+    getUserById: vi.fn(),
+    getJobs: vi.fn(),
+    getUsers: vi.fn(),
+    getContracts: vi.fn(),
+    getAnalytics: vi.fn(),
+  },
+  withTransaction: vi.fn(),
+}));
+
+import { pool, storage } from "../storage.js";
+import { app } from "../app.js";
+
+const PASSWORD_HASH =
+  "$2b$10$7f/XLgajP4pD7TTgfLU6ueHcZTJZ6EtggkRFH.PtWgfaUaNzNDJey";
+
+const OWNER = {
+  id: 11,
+  username: "route-owner",
+  email: "route-owner@example.com",
+  password: PASSWORD_HASH,
+  role: "pelanggan",
+  fullName: "Route Owner",
+  createdAt: "2024-01-01T00:00:00.000Z",
+  onboardingCompleted: true,
+  replitId: null,
+};
+
+const ADMIN = {
+  ...OWNER,
+  id: 12,
+  username: "route-admin",
+  email: "route-admin@example.com",
+  role: "admin",
+  fullName: "Route Admin",
+};
+
+const JOB = {
+  id: 21,
+  title: "Renovasi rumah",
+  description: "Renovasi dapur dan ruang tamu",
+  category: "Renovasi",
+  budget: 100000000,
+  location: "Jakarta",
+  status: "open",
+  clientId: OWNER.id,
+  workerId: null,
+  createdAt: "2024-01-02T00:00:00.000Z",
+  deadline: "2024-06-01T00:00:00.000Z",
+};
+
+const CONTRACT = {
+  id: 31,
+  jobId: JOB.id,
+  clientId: OWNER.id,
+  workerId: 13,
+  title: "Kontrak renovasi",
+  description: JOB.description,
+  totalValue: 50000000,
+  status: "active",
+  clientSigned: true,
+  workerSigned: false,
+  createdAt: "2024-01-03T00:00:00.000Z",
+  startDate: "2024-01-04T00:00:00.000Z",
+  endDate: null,
+};
+
+function resetMocks() {
+  for (const fn of Object.values(storage) as ReturnType<typeof vi.fn>[]) {
+    if (typeof fn?.mockReset === "function") fn.mockReset();
+  }
+  vi.mocked(pool.query).mockReset();
+}
+
+async function authenticatedAgent(user = OWNER) {
+  vi.mocked(storage.getUserByEmail).mockResolvedValueOnce(user as any);
+
+  const agent = request.agent(app);
+  const login = await agent
+    .post("/api/login")
+    .send({ email: user.email, password: "pass123" });
+
+  expect(login.status).toBe(200);
+  expect(login.body).not.toHaveProperty("password");
+  return agent;
+}
+
+describe("Express route smoke tests", () => {
+  beforeEach(resetMocks);
+
+  describe("public routes", () => {
+    it("serves the database-backed health check with the expected shape", async () => {
+      vi.mocked(pool.query).mockResolvedValueOnce({ rows: [{ "?column?": 1 }] } as any);
+
+      const response = await request(app).get("/api/health");
+
+      expect(response.status).toBe(200);
+      expect(response.headers["content-type"]).toMatch(/application\/json/);
+      expect(response.body).toEqual({ status: "ok" });
+      expect(pool.query).toHaveBeenCalledWith("SELECT 1");
+    });
+
+    it("lists jobs and includes the public client summary", async () => {
+      vi.mocked(storage.getJobs).mockResolvedValueOnce([JOB] as any);
+      vi.mocked(storage.getUsers).mockResolvedValueOnce([OWNER] as any);
+
+      const response = await request(app)
+        .get("/api/jobs")
+        .query({ status: "open", search: "dapur" });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([
+        {
+          ...JOB,
+          client: { id: OWNER.id, fullName: OWNER.fullName },
+        },
+      ]);
+      expect(storage.getJobs).toHaveBeenCalledWith({
+        category: undefined,
+        status: "open",
+        clientId: undefined,
+      });
+    });
+
+    it("returns a price suggestion with a stable agent response shape", async () => {
+      const response = await request(app)
+        .post("/api/agents/price-suggest")
+        .send({ category: "Renovasi", location: "Jakarta" });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        agent: "PricingAgent",
+        category: "Renovasi",
+        location: "Jakarta",
+      });
+      expect(response.body.adjustedMin).toEqual(expect.any(Number));
+      expect(response.body.adjustedMid).toEqual(expect.any(Number));
+      expect(response.body.adjustedMax).toEqual(expect.any(Number));
+    });
+  });
+
+  describe("authenticated routes", () => {
+    it("rejects a protected route when no session is present", async () => {
+      const response = await request(app).get("/api/contracts");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getContracts).not.toHaveBeenCalled();
+    });
+
+    it("lists the signed-in user's contracts with participant summaries", async () => {
+      vi.mocked(storage.getContracts).mockResolvedValueOnce([CONTRACT] as any);
+      vi.mocked(storage.getUsers).mockResolvedValueOnce([
+        OWNER,
+        { ...OWNER, id: 13, fullName: "Route Worker", role: "tukang" },
+      ] as any);
+
+      const agent = await authenticatedAgent();
+      const response = await agent.get("/api/contracts");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([
+        {
+          ...CONTRACT,
+          client: { id: OWNER.id, fullName: OWNER.fullName },
+          worker: { id: 13, fullName: "Route Worker" },
+        },
+      ]);
+      expect(storage.getContracts).toHaveBeenCalledWith(OWNER.id);
+    });
+  });
+
+  describe("admin authorization", () => {
+    it("forbids a signed-in non-admin from an admin route", async () => {
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
+
+      const agent = await authenticatedAgent();
+      const response = await agent.get("/api/admin/status");
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({ error: "Forbidden" });
+      expect(storage.getAnalytics).not.toHaveBeenCalled();
+    });
+
+    it("allows an admin through the same middleware and returns analytics", async () => {
+      const analytics = { totalUsers: 2, totalJobs: 1 };
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(ADMIN as any);
+      vi.mocked(storage.getAnalytics).mockResolvedValueOnce(analytics as any);
+
+      const agent = await authenticatedAgent(ADMIN);
+      const response = await agent.get("/api/admin/status");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(analytics);
+      expect(storage.getAnalytics).toHaveBeenCalledOnce();
+    });
+  });
+});
