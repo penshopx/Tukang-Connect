@@ -3,8 +3,8 @@ name: Playwright on Nix
 description: How to interpret local Playwright launch failures caused by missing Nix shared libraries
 ---
 
-Treat a Chromium launch failure that names a missing shared library as a runner-environment problem, not as an application regression.
+Treat a Chromium launch failure that names a missing shared library as a runner-environment problem, not as an application regression. For repeatable local validation, prefer Nix's wrapped Chromium executable over Playwright's downloaded headless shell.
 
-**Why:** Downloading Playwright's browser binary and adding common browser dependencies can still leave the local Nix container without libraries such as GBM, while the same flow succeeds in Replit's managed browser tester.
+**Why:** Playwright's downloaded browser can bypass the Nix dependency closure and fail first on GLib, then GBM. Installing individual shared libraries is brittle; the Nix Chromium wrapper carries its runtime closure.
 
-**How to apply:** Use test discovery plus the managed browser tester to validate the flow, and report the local runner limitation separately. Avoid broad `.replit` package changes solely to make one local browser binary launch.
+**How to apply:** For a persistent validation workflow, install the Chromium system package and pass its discovered executable path to Playwright through an optional launch setting. Otherwise use the managed browser tester. Do not accumulate individual graphics libraries.

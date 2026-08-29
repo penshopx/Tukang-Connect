@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 const baseURL = process.env.BASE_URL ?? "http://127.0.0.1:5000";
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: "./client/e2e",
@@ -12,6 +13,9 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "retain-on-failure",
+    launchOptions: chromiumExecutablePath
+      ? { executablePath: chromiumExecutablePath }
+      : undefined,
   },
   webServer: {
     command: "npm run dev",
