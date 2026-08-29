@@ -116,7 +116,7 @@ vi.mock("../storage.js", () => ({
 // Import real app AFTER vi.mock (hoisting guarantees the mock is registered
 // before the module graph resolves, so app.ts picks up the mocked storage).
 import { storage } from "../storage.js";
-import { app }     from "../app.js";
+import { app, getSessionConfiguration } from "../app.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -140,6 +140,40 @@ async function authenticatedAgent() {
   vi.mocked(storage.getUserById).mockResolvedValue(FAKE_USER as any);
   return agent;
 }
+
+describe("session configuration", () => {
+  it("requires a strong SESSION_SECRET in production", () => {
+    expect(() => getSessionConfiguration("production", undefined)).toThrow(
+      /SESSION_SECRET must be set to at least 32 characters in production/,
+    );
+    expect(() => getSessionConfiguration("production", "too-short")).toThrow(
+      /SESSION_SECRET must be set to at least 32 characters in production/,
+    );
+    expect(() => getSessionConfiguration("production", " ".repeat(32))).toThrow(
+      /SESSION_SECRET must be set to at least 32 characters in production/,
+    );
+  });
+
+  it("uses secure proxy-compatible cookie flags in production", () => {
+    const configuration = getSessionConfiguration("production", "s".repeat(32));
+
+    expect(configuration.cookie).toMatchObject({
+      secure: true,
+      httpOnly: true,
+      sameSite: "lax",
+    });
+  });
+
+  it("keeps local test cookies usable without weakening production rules", () => {
+    const configuration = getSessionConfiguration("test", undefined);
+
+    expect(configuration.cookie).toMatchObject({
+      secure: false,
+      httpOnly: true,
+      sameSite: "lax",
+    });
+  });
+});
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,10 @@
 import express from "express";
-import session from "express-session";
+import session, { type SessionOptions } from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "url";
 import { Issuer, generators } from "openid-client";
 import bcrypt from "bcrypt";
@@ -20,6 +21,7 @@ import type { User } from "../shared/types.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MIN_PASSWORD_LENGTH = 8;
+const MIN_SESSION_SECRET_LENGTH = 32;
 
 const nonBlankString = z.string().refine((value) => value.trim().length > 0);
 const validDeadline = z.string().date().or(z.string().datetime({ offset: true }));
@@ -103,9 +105,70 @@ for (const method of _routeMethods) {
   };
 }
 const publicDir = path.join(__dirname, "../public");
-const isProd = fs.existsSync(publicDir);
-const isProductionEnvironment = process.env.NODE_ENV === "production";
-const DEVELOPMENT_SESSION_SECRET = "development-only-session-secret";
+const isBuiltApp = fs.existsSync(publicDir);
+const isProduction = process.env.NODE_ENV === "production";
+
+// A production session secret must be supplied through the environment. For
+// development and tests, use a per-process secret so local setup stays simple
+// without leaving a reusable secret in the source tree.
+const developmentSessionSecret = randomBytes(32).toString("hex");
+
+function getSessionConfiguration(
+  nodeEnv = process.env.NODE_ENV,
+  configuredSecret?: string,
+): SessionOptions {
+  const isProductionEnvironment = nodeEnv === "production";
+  // Distinguish an explicitly missing secret from the omitted argument used
+  // during application startup, where the environment should be consulted.
+  const environmentSecret =
+    arguments.length >= 2 ? configuredSecret : process.env.SESSION_SECRET;
+  const hasStrongSecret =
+    typeof environmentSecret === "string" &&
+    environmentSecret.trim().length >= MIN_SESSION_SECRET_LENGTH;
+
+  if (isProductionEnvironment && !hasStrongSecret) {
+    throw new Error(
+      `SESSION_SECRET must be set to at least ${MIN_SESSION_SECRET_LENGTH} characters in production`,
+    );
+  }
+
+  return {
+    secret: environmentSecret || developmentSessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    proxy: isProductionEnvironment,
+    cookie: {
+      secure: isProductionEnvironment,
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  };
+}
+
+function getSessionOptions(
+  store: session.Store | undefined,
+  environment = process.env.NODE_ENV,
+  configuredSecret?: string,
+): SessionOptions {
+  const configuration =
+    arguments.length >= 3
+      ? getSessionConfiguration(environment, configuredSecret)
+      : getSessionConfiguration(environment);
+
+  return {
+    store,
+    ...configuration,
+  };
+}
+
+if (isProduction) {
+  // Replit terminates TLS before forwarding requests to the app. Trust only
+  // that proxy hop so express-session can honor X-Forwarded-Proto safely.
+  app.set("trust proxy", 1);
+}
+
+const sessionConfiguration = getSessionConfiguration();
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -122,37 +185,6 @@ const sessionStore =
         pruneSessionInterval: false,
       })
     : undefined;
-
-function getSessionOptions(
-  store: session.Store | undefined,
-  environment = process.env.NODE_ENV,
-  configuredSecret = process.env.SESSION_SECRET,
-): session.SessionOptions {
-  const production = environment === "production";
-  if (production && !configuredSecret?.trim()) {
-    throw new Error("SESSION_SECRET must be configured in production");
-  }
-
-  return {
-    store,
-    secret: configuredSecret || DEVELOPMENT_SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    proxy: production,
-    cookie: {
-      secure: production,
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
-  };
-}
-
-if (isProductionEnvironment) {
-  // Replit terminates TLS at its proxy. Trust the first proxy hop so Express
-  // recognizes HTTPS and express-session can emit Secure cookies.
-  app.set("trust proxy", 1);
-}
 
 type SessionPruningHealth =
   | { status: "ok"; lastIncidentId?: string; recoveredAt?: string }
@@ -192,7 +224,10 @@ const sessionPruner = sessionStore
   : undefined;
 
 app.use(
-  session(getSessionOptions(sessionStore))
+  session({
+    store: sessionStore,
+    ...sessionConfiguration,
+  })
 );
 
 app.get("/api/health", async (_req, res) => {
@@ -1949,7 +1984,7 @@ app.get("/api/salary-reference", (_req, res) => {
 });
 
 // Serve React frontend when dist/public exists
-if (isProd) {
+if (isBuiltApp) {
   app.use(express.static(publicDir));
   app.get("*", (_req, res) => {
     res.sendFile(path.join(publicDir, "index.html"));
@@ -2015,4 +2050,4 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(status).json({ error: "Service temporarily unavailable" });
 });
 
-export { app, getSessionOptions };
+export { app, getSessionConfiguration, getSessionOptions };
