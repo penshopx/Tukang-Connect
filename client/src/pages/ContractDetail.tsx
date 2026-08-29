@@ -407,7 +407,7 @@ export default function ContractDetail() {
         <div className="space-y-4">
           <Card className="shadow-sm">
             <CardContent className="p-5">
-              <p className="text-3xl font-bold text-primary mb-1">{formatCurrency(contract.totalValue)}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-primary mb-1 break-all leading-tight">{formatCurrency(contract.totalValue)}</p>
               <p className="text-sm text-muted-foreground mb-4">Total Nilai Kontrak</p>
 
               {contract.status === "active" && !hasUserSigned && (

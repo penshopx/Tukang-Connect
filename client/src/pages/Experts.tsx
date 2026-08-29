@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useExperts } from "@/hooks/useExperts";
-import { formatCurrency, getInitials } from "@/lib/utils";
+import { compareNullableMoney, formatCurrency, getInitials } from "@/lib/utils";
 import { JOB_CATEGORIES } from "@/lib/constants";
 
 const KKNI_COLORS: Record<string, string> = {
@@ -56,8 +56,8 @@ export default function ExpertsPage() {
 
   const experts = [...rawExperts].sort((a: any, b: any) => {
     if (sort === "projects") return (b.completedProjects || 0) - (a.completedProjects || 0);
-    if (sort === "rate_low") return (a.hourlyRate || 999999) - (b.hourlyRate || 999999);
-    if (sort === "rate_high") return (b.hourlyRate || 0) - (a.hourlyRate || 0);
+    if (sort === "rate_low") return compareNullableMoney(a.hourlyRate, b.hourlyRate, "asc");
+    if (sort === "rate_high") return compareNullableMoney(a.hourlyRate, b.hourlyRate, "desc");
     return b.rating - a.rating;
   });
 

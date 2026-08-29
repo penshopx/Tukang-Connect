@@ -275,7 +275,7 @@ export default function JobDetail() {
         <div className="space-y-4">
           <Card className="shadow-sm">
             <CardContent className="p-5">
-              <div className="text-3xl font-bold text-primary mb-1">{formatCurrency(job.budget)}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary mb-1 break-all leading-tight">{formatCurrency(job.budget)}</div>
               <p className="text-sm text-muted-foreground mb-4">Anggaran Proyek</p>
 
               {user ? (

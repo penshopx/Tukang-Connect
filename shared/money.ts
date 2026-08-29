@@ -34,6 +34,29 @@ export const compareMoney = (left: MoneyLike, right: MoneyLike): number => {
   const delta = moneyToBigInt(left) - moneyToBigInt(right);
   return delta === 0n ? 0 : delta < 0n ? -1 : 1;
 };
+/** Exact integer multiplication for derived monetary values. */
+export const multiplyMoney = (value: MoneyLike, multiplier: number): DerivedMoney => {
+  if (!Number.isSafeInteger(multiplier) || multiplier < 0) {
+    throw new Error("Money multiplier must be a non-negative safe integer");
+  }
+  return (moneyToBigInt(value) * BigInt(multiplier)).toString();
+};
+/** Exact rational scaling with half-up rounding, without floating-point money arithmetic. */
+export const scaleMoney = (
+  value: MoneyLike,
+  numerator: number,
+  denominator: number,
+): DerivedMoney => {
+  if (!Number.isSafeInteger(numerator) || numerator < 0) {
+    throw new Error("Money scale numerator must be a non-negative safe integer");
+  }
+  if (!Number.isSafeInteger(denominator) || denominator <= 0) {
+    throw new Error("Money scale denominator must be a positive safe integer");
+  }
+  const scaledNumerator = moneyToBigInt(value) * BigInt(numerator);
+  const divisor = BigInt(denominator);
+  return ((scaledNumerator + divisor / 2n) / divisor).toString();
+};
 /** Floor allocation of a whole integer percentage. */
 export const allocateMoneyPercentage = (value: MoneyLike, percentage: number): Money => {
   if (!Number.isInteger(percentage) || percentage < 0 || percentage > 100) throw new Error("Percentage must be an integer from 0 to 100");

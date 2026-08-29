@@ -84,21 +84,6 @@ function nullableDatabaseMoney(value: unknown, field: string): string | null {
   return value === null || value === undefined ? null : requiredDatabaseMoney(value, field);
 }
 
-function assertSafeNumberMoney(value: unknown, field: string, nullable = false): void {
-  if (nullable && (value === null || value === undefined)) return;
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < 1 ||
-    value > Number.MAX_SAFE_INTEGER
-  ) {
-    throw new InvalidMoneyError(
-      field,
-      `expected a positive safe integer from 1 to ${Number.MAX_SAFE_INTEGER}`,
-    );
-  }
-}
-
 function userFromRow(r: any): User {
   return {
     id: r.id,
@@ -121,13 +106,7 @@ function profileFromRow(r: any): Profile {
     location: r.location,
     skills: r.skills ?? [],
     category: r.category,
-    hourlyRate: r.hourly_rate === null || r.hourly_rate === undefined
-      ? null
-      : (() => {
-          const value = requiredDatabaseNumber(r.hourly_rate, "profiles.hourly_rate");
-          assertSafeNumberMoney(value, "profiles.hourly_rate");
-          return value;
-        })(),
+    hourlyRate: nullableDatabaseMoney(r.hourly_rate, "profiles.hourly_rate"),
     isVerified: r.is_verified,
     isMandor: r.is_mandor,
     certifications: r.certifications ?? [],
@@ -468,7 +447,6 @@ const storageApi = {
     userData: Omit<User, "id" | "createdAt" | "onboardingCompleted"> & { replitId?: string; onboardingCompleted?: boolean },
     profileData: Omit<Profile, "id" | "userId">
   ): Promise<{ user: User; profile: Profile }> => {
-    assertSafeNumberMoney(profileData.hourlyRate, "profiles.hourly_rate", true);
     return withTransaction(async (client) => {
       const ur = await client.query(
         "INSERT INTO users (username, email, password, role, full_name, replit_id, onboarding_completed) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
@@ -482,7 +460,11 @@ const storageApi = {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
         [
           user.id, profileData.bio, profileData.location, profileData.skills,
-          profileData.category, profileData.hourlyRate, profileData.isVerified,
+          profileData.category,
+          profileData.hourlyRate === null
+            ? null
+            : requiredDatabaseMoney(profileData.hourlyRate, "profiles.hourly_rate"),
+          profileData.isVerified,
           profileData.isMandor, profileData.certifications, profileData.avatarUrl,
           profileData.completedProjects, profileData.rating, profileData.ratingCount,
           profileData.yearsExperience, profileData.phone, profileData.kkniLevel,
@@ -504,14 +486,16 @@ const storageApi = {
     return r.rows[0] ? profileFromRow(r.rows[0]) : undefined;
   },
   createProfile: async (data: Omit<Profile, "id">): Promise<Profile> => {
-    assertSafeNumberMoney(data.hourlyRate, "profiles.hourly_rate", true);
     const r = await pool.query(
       `INSERT INTO profiles (user_id, bio, location, skills, category, hourly_rate, is_verified, is_mandor,
         certifications, avatar_url, completed_projects, rating, rating_count, years_experience, phone, kkni_level)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
       [
         data.userId, data.bio, data.location, data.skills, data.category,
-        data.hourlyRate, data.isVerified, data.isMandor, data.certifications,
+        data.hourlyRate === null
+          ? null
+          : requiredDatabaseMoney(data.hourlyRate, "profiles.hourly_rate"),
+        data.isVerified, data.isMandor, data.certifications,
         data.avatarUrl, data.completedProjects, data.rating, data.ratingCount,
         data.yearsExperience, data.phone, data.kkniLevel,
       ]
@@ -519,9 +503,6 @@ const storageApi = {
     return profileFromRow(r.rows[0]);
   },
   updateProfile: async (userId: number, data: Partial<Profile>): Promise<Profile | null> => {
-    if ("hourlyRate" in data) {
-      assertSafeNumberMoney(data.hourlyRate, "profiles.hourly_rate", true);
-    }
     const fields: string[] = [];
     const values: any[] = [];
     let i = 1;
@@ -533,7 +514,15 @@ const storageApi = {
       yearsExperience: "years_experience", phone: "phone", kkniLevel: "kkni_level",
     };
     for (const [key, col] of Object.entries(map)) {
-      if (key in data) { fields.push(`${col} = $${i++}`); values.push((data as any)[key]); }
+      if (key in data) {
+        fields.push(`${col} = $${i++}`);
+        const value = (data as any)[key];
+        values.push(
+          key === "hourlyRate" && value !== null
+            ? requiredDatabaseMoney(value, "profiles.hourly_rate")
+            : value,
+        );
+      }
     }
     if (!fields.length) {
       const r = await pool.query("SELECT * FROM profiles WHERE user_id = $1", [userId]);

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
-import { compareMoney, formatCurrency, formatDate, getInitials } from "@/lib/utils";
+import { compareMoney, formatCurrency, formatDate, getInitials, multiplyMoney } from "@/lib/utils";
 import { useUser } from "@/hooks/useUser";
 
 function useBrainProject(jobId: number) {
@@ -377,8 +377,8 @@ export default function BrainProject() {
                 <div className="flex justify-between text-sm">
                   <span className="text-xs text-muted-foreground">Anggaran Anda</span>
                   <span className={`font-bold text-xs ${
-                    compareMoney(job.budget, priceSuggestion.adjustedMin * 5) < 0 ? "text-red-600" :
-                    compareMoney(job.budget, priceSuggestion.adjustedMid * 5) < 0 ? "text-amber-600" : "text-green-600"
+                    compareMoney(job.budget, multiplyMoney(priceSuggestion.adjustedMin, 5)) < 0 ? "text-red-600" :
+                    compareMoney(job.budget, multiplyMoney(priceSuggestion.adjustedMid, 5)) < 0 ? "text-amber-600" : "text-green-600"
                   }`}>{formatCurrency(job.budget)}</span>
                 </div>
               </div>

@@ -26,6 +26,7 @@ import { startupReady, storage } from "../storage.js";
 const BIGINT_BUDGET = "9007199254740993";
 const BIGINT_PROPOSED_BUDGET = "9223372036854775807";
 const BIGINT_CONTRACT_VALUE = "9223372036854775807";
+const BIGINT_MAX = "9223372036854775807";
 const JOB_ROW = {
   id: 21,
   title: "Renovasi rumah",
@@ -73,7 +74,7 @@ const PROFILE_ROW = {
   location: "Jakarta",
   skills: ["Renovasi"],
   category: "Renovasi",
-  hourly_rate: String(Number.MAX_SAFE_INTEGER),
+  hourly_rate: BIGINT_MAX,
   is_verified: false,
   is_mandor: false,
   certifications: [],
@@ -92,7 +93,7 @@ const PROFILE_INPUT = {
   location: PROFILE_ROW.location,
   skills: PROFILE_ROW.skills,
   category: PROFILE_ROW.category,
-  hourlyRate: Number.MAX_SAFE_INTEGER,
+  hourlyRate: BIGINT_MAX,
   isVerified: PROFILE_ROW.is_verified,
   isMandor: PROFILE_ROW.is_mandor,
   certifications: PROFILE_ROW.certifications,
@@ -251,23 +252,23 @@ describe("storage monetary value normalization", () => {
     expect(typeof contracts[0]?.totalValue).toBe("string");
   });
 
-  it("preserves the maximum safe hourly rate when creating a profile", async () => {
+  it("preserves the PostgreSQL BIGINT maximum hourly rate when creating a profile", async () => {
     poolMock.query.mockResolvedValueOnce({ rows: [PROFILE_ROW] });
 
     const profile = await storage.createProfile(PROFILE_INPUT);
 
-    expect(profile.hourlyRate).toBe(Number.MAX_SAFE_INTEGER);
+    expect(profile.hourlyRate).toBe(BIGINT_MAX);
     expect(poolMock.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO profiles"),
-      expect.arrayContaining([Number.MAX_SAFE_INTEGER]),
+      expect.arrayContaining([BIGINT_MAX]),
     );
   });
 
-  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "9223372036854775808"])(
     "rejects invalid profile hourly rate %s before querying PostgreSQL",
     async (hourlyRate) => {
       await expect(
-        storage.updateProfile(PROFILE_ROW.user_id, { hourlyRate }),
+        storage.updateProfile(PROFILE_ROW.user_id, { hourlyRate } as any),
       ).rejects.toMatchObject({
         cause: {
           code: "INVALID_MONEY_DATA",
@@ -277,6 +278,55 @@ describe("storage monetary value normalization", () => {
       expect(poolMock.query).not.toHaveBeenCalled();
     },
   );
+
+  it("preserves a maximum BIGINT milestone amount on create", async () => {
+    const row = {
+      id: 71,
+      contract_id: CONTRACT_ROW.id,
+      title: "Serah terima",
+      description: "Pembayaran akhir",
+      amount: BIGINT_MAX,
+      status: "in_progress",
+      due_date: null,
+      completed_at: null,
+      notes: null,
+    };
+    poolMock.query.mockResolvedValueOnce({ rows: [row] });
+
+    const milestone = await storage.createMilestone({
+      contractId: CONTRACT_ROW.id,
+      title: row.title,
+      description: row.description,
+      amount: BIGINT_MAX,
+      status: "in_progress",
+      dueDate: null,
+      completedAt: null,
+      notes: null,
+    });
+
+    expect(milestone.amount).toBe(BIGINT_MAX);
+    expect(poolMock.query).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO milestones"),
+      expect.arrayContaining([BIGINT_MAX]),
+    );
+  });
+
+  it("aggregates revenue beyond the BIGINT column range without rounding", async () => {
+    poolMock.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          { status: "completed", total_value: BIGINT_MAX },
+          { status: "completed", total_value: BIGINT_MAX },
+        ],
+      });
+
+    const analytics = await storage.getAnalytics();
+
+    expect(analytics.totalRevenue).toBe("18446744073709551614");
+  });
 });
 
 describe("storage dispute visibility", () => {

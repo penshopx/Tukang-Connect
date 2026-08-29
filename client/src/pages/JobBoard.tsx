@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, multiplyMoney } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -418,7 +418,7 @@ export default function JobBoardPage() {
                             {formatCurrency(item.rate)}
                           </td>
                           <td className="px-4 py-3 text-right text-muted-foreground">
-                            {formatCurrency(item.rate * 22)}
+                            {formatCurrency(multiplyMoney(item.rate, 22))}
                           </td>
                         </tr>
                       ))}

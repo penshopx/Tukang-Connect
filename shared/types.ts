@@ -1,3 +1,5 @@
+import type { Money } from "./money.js";
+
 export type UserRole = "pelanggan" | "tukang" | "admin";
 
 export interface User {
@@ -19,7 +21,7 @@ export interface Profile {
   location: string | null;
   skills: string[];
   category: string | null;
-  hourlyRate: number | null;
+  hourlyRate: Money | null;
   isVerified: boolean;
   isMandor: boolean;
   certifications: string[];
@@ -37,7 +39,7 @@ export interface Job {
   title: string;
   description: string;
   category: string;
-  budget: string;
+  budget: Money;
   location: string;
   status: "open" | "in_progress" | "completed" | "cancelled";
   clientId: number;
@@ -51,7 +53,7 @@ export interface JobApplication {
   jobId: number;
   applicantId: number;
   message: string | null;
-  proposedBudget: string | null;
+  proposedBudget: Money | null;
   status: "pending" | "accepted" | "rejected" | "withdrawn";
   createdAt: string;
 }
@@ -63,7 +65,7 @@ export interface Contract {
   workerId: number;
   title: string;
   description: string;
-  totalValue: string;
+  totalValue: Money;
   status: "draft" | "active" | "completed" | "disputed";
   clientSigned: boolean;
   workerSigned: boolean;
@@ -77,7 +79,7 @@ export interface Milestone {
   contractId: number;
   title: string;
   description: string;
-  amount: string;
+  amount: Money;
   status: "pending" | "in_progress" | "submitted" | "approved" | "rejected";
   dueDate: string | null;
   completedAt: string | null;

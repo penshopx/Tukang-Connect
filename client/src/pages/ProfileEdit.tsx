@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useProfile, useUpdateProfile, useUpdateRole, useDisconnectReplit } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
 import { SKILLS_LIST, KKNI_LEVELS, JOB_CATEGORIES } from "@/lib/constants";
+import { canonicalMoneyInput } from "@/lib/utils";
 
 export default function ProfileEdit() {
   const [, navigate] = useLocation();
@@ -126,10 +127,17 @@ export default function ProfileEdit() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    let hourlyRate: string | null;
+    try {
+      hourlyRate = form.hourlyRate ? canonicalMoneyInput(form.hourlyRate) : null;
+    } catch (error) {
+      toast({ title: "Tarif tidak valid", description: (error as Error).message, variant: "destructive" });
+      return;
+    }
     updateProfile(
       {
         ...form,
-        hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : null,
+        hourlyRate,
         yearsExperience: form.yearsExperience ? Number(form.yearsExperience) : null,
       },
       {
@@ -182,7 +190,7 @@ export default function ProfileEdit() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium mb-1 block">Tarif per Jam (Rp)</label>
-                    <Input type="number" placeholder="150000" value={form.hourlyRate} onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value }))} />
+                    <Input inputMode="numeric" placeholder="150000" value={form.hourlyRate} onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value.replace(/\D/g, "") }))} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-1 block">Pengalaman (Tahun)</label>

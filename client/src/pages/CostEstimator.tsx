@@ -6,7 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { formatCurrency } from "@/lib/utils";
+import {
+  allocateMoneyPercentage,
+  formatCurrency,
+  scaleMoney,
+  subtractMoney,
+} from "@/lib/utils";
 import { JOB_CATEGORIES } from "@/lib/constants";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -69,14 +74,18 @@ export default function CostEstimatorPage() {
       const res = await apiRequest("POST", "/api/estimates", form);
       const data = await res.json();
       const locationFactor = LOCATION_FACTOR[form.location] || 1.0;
+      const locationPercent = Math.round(locationFactor * 100);
+      const total = scaleMoney(data.total, locationPercent, 100);
+      const laborCost = scaleMoney(data.laborCost, locationPercent, 100);
+      const materialCost = scaleMoney(data.materialCost, locationPercent, 100);
       // Apply location factor on top of the result
       const adjusted = {
         ...data,
-        laborCost: Math.round(data.laborCost * locationFactor),
-        materialCost: Math.round(data.materialCost * locationFactor),
-        overhead: Math.round(data.overhead * locationFactor),
-        total: Math.round(data.total * locationFactor),
-        perM2: Math.round(data.perM2 * locationFactor),
+        laborCost: laborCost.toString(),
+        materialCost: materialCost.toString(),
+        overhead: subtractMoney(subtractMoney(total, laborCost), materialCost).toString(),
+        total: total.toString(),
+        perM2: scaleMoney(data.perM2, locationPercent, 100).toString(),
         locationFactor,
         area: Number(form.area),
         category: form.category,
@@ -240,7 +249,7 @@ export default function CostEstimatorPage() {
                 {showBreakdown && (
                   <div className="mt-4 space-y-3">
                     {materialBreakdown.map((m) => {
-                      const itemCost = Math.round(result.materialCost * m.portion / 100);
+                      const itemCost = allocateMoneyPercentage(result.materialCost, m.portion);
                       return (
                         <div key={m.item}>
                           <div className="flex justify-between text-sm mb-1">
@@ -272,8 +281,9 @@ export default function CostEstimatorPage() {
             <CardContent>
               <div className="grid grid-cols-3 gap-2">
                 {QUALITY_CONFIG.map((q) => {
-                  const mult = q.multiplier;
-                  const total = Math.round(result.total / (qConfig?.multiplier || 1) * mult);
+                  const currentPercent = Math.round((qConfig?.multiplier || 1) * 100);
+                  const targetPercent = Math.round(q.multiplier * 100);
+                  const total = scaleMoney(result.total, targetPercent, currentPercent);
                   const isActive = q.value === result.quality;
                   return (
                     <div key={q.value} className={`p-3 rounded-xl text-center border-2 ${isActive ? "border-primary bg-primary/5" : "border-border"}`}>

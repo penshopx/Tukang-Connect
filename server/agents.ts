@@ -1,6 +1,16 @@
 import { storage } from "./storage.js";
 import type { Job, Profile } from "../shared/types.js";
-import { addMoney, allocateMoneyPercentage, compareMoney, formatIdrInteger, moneyToBigInt, type Money, type MoneyLike } from "../shared/money.js";
+import {
+  addMoney,
+  allocateMoneyPercentage,
+  compareMoney,
+  formatIdrInteger,
+  moneyToBigInt,
+  multiplyMoney,
+  scaleMoney,
+  type Money,
+  type MoneyLike,
+} from "../shared/money.js";
 
 const LOCATION_MAP: Record<string, string> = {
   "jakarta selatan": "jakarta", "jakarta utara": "jakarta", "jakarta barat": "jakarta",
@@ -52,11 +62,11 @@ const PRICE_BASE: Record<string, { min: number; mid: number; max: number; unit: 
   "Lainnya":          { min: 500_000,   mid: 1_000_000, max: 3_000_000, unit: "per unit" },
 };
 
-const LOCATION_MULTIPLIER: Record<string, number> = {
-  "jakarta": 1.35, "bali": 1.20, "surabaya": 1.10, "bandung": 1.05,
-  "semarang": 1.00, "yogyakarta": 0.95, "medan": 0.95,
-  "makassar": 0.90, "jawa barat": 1.00, "jawa timur": 1.00,
-  "jawa tengah": 0.95, "diy": 0.95, "sumatera utara": 0.90,
+const LOCATION_MULTIPLIER_PERCENT: Record<string, number> = {
+  "jakarta": 135, "bali": 120, "surabaya": 110, "bandung": 105,
+  "semarang": 100, "yogyakarta": 95, "medan": 95,
+  "makassar": 90, "jawa barat": 100, "jawa timur": 100,
+  "jawa tengah": 95, "diy": 95, "sumatera utara": 90,
 };
 
 const MILESTONE_TEMPLATES: Record<string, Array<{ title: string; pct: number; desc: string; days: number }>> = {
@@ -182,11 +192,11 @@ export interface PriceSuggestion {
   category: string;
   location: string;
   locationMultiplier: number;
-  baseMin: number;
-  baseMax: number;
-  adjustedMin: number;
-  adjustedMid: number;
-  adjustedMax: number;
+  baseMin: Money;
+  baseMax: Money;
+  adjustedMin: Money;
+  adjustedMid: Money;
+  adjustedMax: Money;
   unit: string;
   tips: string[];
 }
@@ -281,11 +291,14 @@ export const PricingAgent = {
   suggestPrice(category: string, location: string, existingBudget?: MoneyLike): PriceSuggestion {
     const base = PRICE_BASE[category] || PRICE_BASE["Lainnya"];
     const province = getProvince(location);
-    const multiplier = LOCATION_MULTIPLIER[province] || LOCATION_MULTIPLIER[location.toLowerCase()] || 1.0;
+    const multiplierPercent = LOCATION_MULTIPLIER_PERCENT[province]
+      || LOCATION_MULTIPLIER_PERCENT[location.toLowerCase()]
+      || 100;
+    const multiplier = multiplierPercent / 100;
 
-    const adjustedMin = Math.round(base.min * multiplier);
-    const adjustedMid = Math.round(base.mid * multiplier);
-    const adjustedMax = Math.round(base.max * multiplier);
+    const adjustedMin = scaleMoney(base.min, multiplierPercent, 100);
+    const adjustedMid = scaleMoney(base.mid, multiplierPercent, 100);
+    const adjustedMax = scaleMoney(base.max, multiplierPercent, 100);
 
     const tips: string[] = [];
     if (multiplier > 1.1) tips.push(`Lokasi ${location} memiliki indeks biaya tinggi (+${Math.round((multiplier - 1) * 100)}%).`);
@@ -294,15 +307,15 @@ export const PricingAgent = {
     tips.push("Negosiasi harga boleh dilakukan, namun hati-hati dengan penawaran terlalu jauh di bawah minimum.");
     if (existingBudget) {
       if (compareMoney(existingBudget, adjustedMin) < 0) tips.push("⚠️ Anggaran yang Anda masukkan di bawah kisaran pasar — bisa sulit menarik tenaga ahli berkualitas.");
-      else if (compareMoney(existingBudget, adjustedMax * 5) > 0) tips.push("✅ Anggaran Anda sangat kompetitif untuk menarik tenaga ahli terbaik.");
+      else if (compareMoney(existingBudget, multiplyMoney(adjustedMax, 5)) > 0) tips.push("✅ Anggaran Anda sangat kompetitif untuk menarik tenaga ahli terbaik.");
     }
 
     return {
       category,
       location,
       locationMultiplier: multiplier,
-      baseMin: base.min,
-      baseMax: base.max,
+      baseMin: base.min.toString(),
+      baseMax: base.max.toString(),
       adjustedMin,
       adjustedMid,
       adjustedMax,

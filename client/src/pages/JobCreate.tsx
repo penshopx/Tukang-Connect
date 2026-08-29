@@ -11,6 +11,7 @@ import { useUser } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
 import { JOB_CATEGORIES } from "@/lib/constants";
 import PriceSuggestWidget from "@/components/PriceSuggestWidget";
+import { canonicalMoneyInput } from "@/lib/utils";
 
 export default function JobCreate() {
   const [, navigate] = useLocation();
@@ -49,13 +50,16 @@ export default function JobCreate() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.category) return toast({ title: "Pilih kategori", variant: "destructive" });
-    if (!/^[1-9]\d*$/.test(form.budget)) {
-      return toast({ title: "Anggaran harus berupa nominal positif", variant: "destructive" });
+    let budget: string;
+    try {
+      budget = canonicalMoneyInput(form.budget);
+    } catch (error) {
+      return toast({ title: "Anggaran tidak valid", description: (error as Error).message, variant: "destructive" });
     }
     createJob(
       {
         ...form,
-        budget: form.budget,
+        budget,
         deadline: form.deadline || null,
       },
       {

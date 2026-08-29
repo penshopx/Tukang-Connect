@@ -6,6 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export type MoneyLike = string | number | bigint;
+export const PG_BIGINT_MAX = 9_223_372_036_854_775_807n;
 
 /**
  * Converts a canonical integer monetary value without passing string values
@@ -38,10 +39,57 @@ export function compareMoney(left: MoneyLike, right: MoneyLike): number {
   return difference < 0n ? -1 : difference > 0n ? 1 : 0;
 }
 
+export function compareNullableMoney(
+  left: MoneyLike | null | undefined,
+  right: MoneyLike | null | undefined,
+  direction: "asc" | "desc",
+): number {
+  if (left == null && right == null) return 0;
+  if (left == null) return 1;
+  if (right == null) return -1;
+  const comparison = compareMoney(left, right);
+  return direction === "asc" ? comparison : -comparison;
+}
+
+export function canonicalMoneyInput(value: string): string {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error("Nominal harus berupa string desimal positif");
+  }
+  const amount = BigInt(value);
+  if (amount > PG_BIGINT_MAX) {
+    throw new Error("Nominal melebihi batas PostgreSQL BIGINT");
+  }
+  return amount.toString();
+}
+
+export function multiplyMoney(value: MoneyLike, multiplier: number): bigint {
+  if (!Number.isSafeInteger(multiplier) || multiplier < 0) {
+    throw new Error("Pengali nominal harus berupa integer aman non-negatif");
+  }
+  return moneyToBigInt(value) * BigInt(multiplier);
+}
+
+export function dailyRate(hourlyRate: MoneyLike): bigint {
+  return multiplyMoney(hourlyRate, 8);
+}
+
+export function scaleMoney(value: MoneyLike, numerator: number, denominator: number): bigint {
+  if (!Number.isSafeInteger(numerator) || numerator < 0 || !Number.isSafeInteger(denominator) || denominator <= 0) {
+    throw new Error("Rasio nominal tidak valid");
+  }
+  const divisor = BigInt(denominator);
+  return (moneyToBigInt(value) * BigInt(numerator) + divisor / 2n) / divisor;
+}
+
+export function allocateMoneyPercentage(value: MoneyLike, percentage: number): bigint {
+  if (!Number.isInteger(percentage) || percentage < 0 || percentage > 100) {
+    throw new Error("Persentase nominal tidak valid");
+  }
+  return moneyToBigInt(value) * BigInt(percentage) / 100n;
+}
+
 export function formatCurrency(amount: MoneyLike): string {
-  const exactAmount = typeof amount === "string" || typeof amount === "bigint"
-    ? moneyToBigInt(amount)
-    : amount;
+  const exactAmount = moneyToBigInt(amount);
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",

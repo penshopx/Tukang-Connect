@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { useExpert } from "@/hooks/useExperts";
-import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
+import { dailyRate, formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { useUser } from "@/hooks/useUser";
 
 const KKNI_DESCRIPTIONS: Record<string, string> = {
@@ -107,7 +107,7 @@ export default function ExpertDetail() {
   const kkniPrefix = expert.kkniLevel?.match(/Level \d/)?.[0] || "";
   const kkniDesc = KKNI_DESCRIPTIONS[kkniPrefix] || "";
 
-  const dayRate = expert.hourlyRate ? expert.hourlyRate * 8 : null;
+  const dayRate = expert.hourlyRate ? dailyRate(expert.hourlyRate) : null;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -168,11 +168,11 @@ export default function ExpertDetail() {
               {expert.hourlyRate && (
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div className="p-2.5 bg-emerald-50 rounded-xl text-center border border-emerald-100">
-                    <p className="text-sm font-bold text-emerald-700">{formatCurrency(expert.hourlyRate)}</p>
+                    <p className="text-sm font-bold text-emerald-700 break-all">{formatCurrency(expert.hourlyRate)}</p>
                     <p className="text-xs text-emerald-600">/jam</p>
                   </div>
                   <div className="p-2.5 bg-blue-50 rounded-xl text-center border border-blue-100">
-                    <p className="text-sm font-bold text-blue-700">{formatCurrency(dayRate!)}</p>
+                    <p className="text-sm font-bold text-blue-700 break-all">{formatCurrency(dayRate!)}</p>
                     <p className="text-xs text-blue-600">/hari (8 jam)</p>
                   </div>
                 </div>

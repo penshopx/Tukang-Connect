@@ -283,9 +283,9 @@ describe("Express route smoke tests", () => {
         category: "Renovasi",
         location: "Jakarta",
       });
-      expect(response.body.adjustedMin).toEqual(expect.any(Number));
-      expect(response.body.adjustedMid).toEqual(expect.any(Number));
-      expect(response.body.adjustedMax).toEqual(expect.any(Number));
+      expect(response.body.adjustedMin).toEqual(expect.any(String));
+      expect(response.body.adjustedMid).toEqual(expect.any(String));
+      expect(response.body.adjustedMax).toEqual(expect.any(String));
     });
 
     it.each([
@@ -374,12 +374,28 @@ describe("Express route smoke tests", () => {
 
       expect(response.status).toBe(200);
       const { laborCost, materialCost, overhead, total, perM2 } = response.body;
+      expect([laborCost, materialCost, overhead, total, perM2]).toEqual(
+        expect.arrayContaining([expect.any(String)]),
+      );
       expect(
         [laborCost, materialCost, overhead, total, perM2].every(
-          (value) => Number.isSafeInteger(value) && value > 0,
+          (value) => /^[1-9]\d*$/.test(value),
         ),
       ).toBe(true);
       expect(BigInt(laborCost) + BigInt(materialCost) + BigInt(overhead)).toBe(BigInt(total));
+    });
+
+    it("returns an exact estimate above JavaScript's safe integer limit", async () => {
+      const agent = await authenticatedAgent(OWNER);
+      const response = await agent.post("/api/estimates").send({
+        category: "Renovasi",
+        area: "6004799504",
+        quality: "standar",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.total).toBe("9007199256000000");
+      expect(BigInt(response.body.total)).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
     });
 
     it.each([
@@ -403,27 +419,28 @@ describe("Express route smoke tests", () => {
       expect(response.body).toEqual({ error });
     });
 
-    it("accepts the maximum safe hourly rate without changing its value", async () => {
+    it("accepts the PostgreSQL BIGINT maximum hourly rate without changing its value", async () => {
+      const maxBigint = "9223372036854775807";
       const agent = await authenticatedAgent(WORKER);
       vi.mocked(storage.updateProfile).mockResolvedValueOnce({
         userId: WORKER.id,
-        hourlyRate: Number.MAX_SAFE_INTEGER,
+        hourlyRate: maxBigint,
       } as any);
 
       const response = await agent.put("/api/profiles").send({
         bio: "Tukang berpengalaman",
-        hourlyRate: Number.MAX_SAFE_INTEGER,
+        hourlyRate: maxBigint,
       });
 
       expect(response.status).toBe(200);
-      expect(response.body.hourlyRate).toBe(Number.MAX_SAFE_INTEGER);
+      expect(response.body.hourlyRate).toBe(maxBigint);
       expect(storage.updateProfile).toHaveBeenCalledWith(
         WORKER.id,
-        expect.objectContaining({ hourlyRate: Number.MAX_SAFE_INTEGER }),
+        expect.objectContaining({ hourlyRate: maxBigint }),
       );
     });
 
-    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "9223372036854775808"])(
       "rejects invalid hourly rate %s before storage",
       async (hourlyRate) => {
         const agent = await authenticatedAgent(WORKER);
@@ -431,7 +448,7 @@ describe("Express route smoke tests", () => {
 
         expect(response.status).toBe(400);
         expect(response.body).toEqual({
-          error: `Tarif per jam harus berupa bilangan bulat dari 1 hingga ${Number.MAX_SAFE_INTEGER}`,
+          error: "Tarif per jam harus berupa string desimal positif hingga batas PostgreSQL BIGINT",
         });
         expect(storage.updateProfile).not.toHaveBeenCalled();
       },
@@ -1009,6 +1026,26 @@ describe("Express route smoke tests", () => {
         expect(storage.createJob).toHaveBeenCalledOnce();
       });
 
+      it("creates a project at the PostgreSQL BIGINT maximum without changing a digit", async () => {
+        const maxBigint = "9223372036854775807";
+        vi.mocked(storage.createJob).mockResolvedValueOnce({
+          ...createdJob,
+          budget: maxBigint,
+        } as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post("/api/jobs").send({
+          ...newJobPayload,
+          budget: maxBigint,
+        });
+
+        expect(response.status).toBe(201);
+        expect(response.body.budget).toBe(maxBigint);
+        expect(storage.createJob).toHaveBeenCalledWith(
+          expect.objectContaining({ budget: maxBigint }),
+        );
+      });
+
       it("uses server-controlled values and defaults an omitted deadline", async () => {
         const { deadline: _deadline, ...payloadWithoutDeadline } = newJobPayload;
         const createdJobWithoutDeadline = { ...createdJob, deadline: null };
@@ -1186,6 +1223,31 @@ describe("Express route smoke tests", () => {
         expect(response.status).toBe(400);
         expect(response.body).toEqual({ error: "Nominal penawaran tidak valid" });
         expect(storage.createApplication).not.toHaveBeenCalled();
+      });
+
+      it("accepts a proposed budget at the PostgreSQL BIGINT maximum", async () => {
+        const maxBigint = "9223372036854775807";
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([] as any);
+        vi.mocked(storage.createApplication).mockResolvedValueOnce({
+          id: 99,
+          jobId: JOB.id,
+          applicantId: WORKER.id,
+          message: "Siap",
+          proposedBudget: maxBigint,
+          status: "pending",
+          createdAt: "2024-01-05T00:00:00.000Z",
+        } as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent
+          .post(`/api/jobs/${JOB.id}/apply`)
+          .send({ message: "Siap", proposedBudget: maxBigint });
+
+        expect(response.status).toBe(201);
+        expect(response.body.proposedBudget).toBe(maxBigint);
+        expect(storage.createApplication).toHaveBeenCalledWith(
+          expect.objectContaining({ proposedBudget: maxBigint }),
+        );
       });
 
       it.each(["pending", "accepted"] as const)(

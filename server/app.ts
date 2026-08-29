@@ -18,7 +18,13 @@ import {
 } from "./sessionPruning.js";
 import { createSessionPruningAlertNotifier } from "./sessionPruningAlerts.js";
 import type { User } from "../shared/types.js";
-import { canonicalMoney, compareMoney, formatIdrInteger } from "../shared/money.js";
+import {
+  PG_BIGINT_MAX,
+  canonicalMoney,
+  compareMoney,
+  formatIdrInteger,
+  multiplyMoney,
+} from "../shared/money.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,16 +45,23 @@ const positiveMoney = z.union([
   }
 });
 const optionalNullablePositiveMoney = positiveMoney.nullable().optional();
-const safeNumberMoney = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const estimateArea = z
-  .union([
-    z.number(),
-    z.string().trim().regex(/^(?:\d+\.?\d*|\.\d+)$/).transform(Number),
-  ])
-  .pipe(z.number().finite().min(1));
 const profileUpdateMoney = z
-  .object({ hourlyRate: safeNumberMoney.nullable().optional() })
+  .object({ hourlyRate: positiveMoney.nullable().optional() })
   .passthrough();
+
+function positiveDecimalRatio(value: unknown): { numerator: bigint; denominator: bigint } | null {
+  const text = typeof value === "number" && Number.isFinite(value) ? String(value) : value;
+  if (typeof text !== "string" || !/^(?:\d+)(?:\.\d+)?$/.test(text)) return null;
+  const [whole, fraction = ""] = text.split(".");
+  const numerator = BigInt(`${whole}${fraction}`);
+  const denominator = 10n ** BigInt(fraction.length);
+  if (numerator < denominator) return null;
+  return { numerator, denominator };
+}
+
+function roundPositiveRatio(numerator: bigint, denominator: bigint): bigint {
+  return (numerator + denominator / 2n) / denominator;
+}
 const updateJobSchema = z
   .object({
     title: nonBlankString,
@@ -751,7 +764,7 @@ app.put("/api/profiles", requireAuth, async (req, res) => {
   const parsed = profileUpdateMoney.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
-      error: `Tarif per jam harus berupa bilangan bulat dari 1 hingga ${Number.MAX_SAFE_INTEGER}`,
+      error: "Tarif per jam harus berupa string desimal positif hingga batas PostgreSQL BIGINT",
     });
   }
   const updated = await storage.updateProfile(req.session.userId!, parsed.data);
@@ -1418,55 +1431,51 @@ app.get("/api/users", requireAdmin, async (req, res) => {
 // Cost Estimation
 app.post("/api/estimates", requireAuth, (req, res) => {
   const { category, area, quality } = req.body;
-  const baseRates: Record<string, number> = {
-    Renovasi: 1500000,
-    "Konstruksi Baru": 3500000,
-    Pengecatan: 80000,
-    Lantai: 350000,
-    Listrik: 500000,
-    Plambing: 600000,
-    Atap: 450000,
-    Pondasi: 2000000,
-    Interior: 2500000,
-    Las: 1200000,
+  const baseRates: Record<string, bigint> = {
+    Renovasi: 1500000n,
+    "Konstruksi Baru": 3500000n,
+    Pengecatan: 80000n,
+    Lantai: 350000n,
+    Listrik: 500000n,
+    Plambing: 600000n,
+    Atap: 450000n,
+    Pondasi: 2000000n,
+    Interior: 2500000n,
+    Las: 1200000n,
   };
-  const qualityMultiplier: Record<string, number> = {
-    ekonomis: 0.75,
-    standar: 1.0,
-    premium: 1.5,
+  const qualityPercent: Record<string, bigint> = {
+    ekonomis: 75n,
+    standar: 100n,
+    premium: 150n,
   };
-  const base = baseRates[category] || 1500000;
-  const multiplier = qualityMultiplier[quality] || 1.0;
-  const parsedArea = estimateArea.safeParse(area);
-  if (!parsedArea.success) {
+  const base = baseRates[category] || 1500000n;
+  const multiplier = qualityPercent[quality] || 100n;
+  const parsedArea = positiveDecimalRatio(area);
+  if (!parsedArea) {
     return res.status(400).json({ error: "Luas harus berupa angka minimal 1" });
   }
 
-  const areaNum = parsedArea.data;
-  const total = Math.round(base * areaNum * multiplier);
-  if (!Number.isSafeInteger(total) || total < 1) {
+  const total = roundPositiveRatio(
+    base * parsedArea.numerator * multiplier,
+    parsedArea.denominator * 100n,
+  );
+  if (total < 1n || total > PG_BIGINT_MAX) {
     return res.status(400).json({
       error: "Luas menghasilkan nominal estimasi di luar rentang yang didukung",
     });
   }
 
-  const totalInteger = BigInt(total);
-  const laborCost = (totalInteger * 35n) / 100n;
-  const materialCost = (totalInteger * 55n) / 100n;
-  const overhead = totalInteger - laborCost - materialCost;
-  const perM2 = Math.round(total / areaNum);
-  if (!Number.isSafeInteger(perM2) || perM2 < 1) {
-    return res.status(400).json({
-      error: "Luas menghasilkan nominal estimasi di luar rentang yang didukung",
-    });
-  }
+  const laborCost = (total * 35n) / 100n;
+  const materialCost = (total * 55n) / 100n;
+  const overhead = total - laborCost - materialCost;
+  const perM2 = roundPositiveRatio(base * multiplier, 100n);
 
   res.json({
-    laborCost: Number(laborCost),
-    materialCost: Number(materialCost),
-    overhead: Number(overhead),
-    total,
-    perM2,
+    laborCost: laborCost.toString(),
+    materialCost: materialCost.toString(),
+    overhead: overhead.toString(),
+    total: total.toString(),
+    perM2: perM2.toString(),
   });
 });
 
@@ -1781,10 +1790,10 @@ app.get("/api/agents/brain-project/:jobId", requireAuth, async (req, res) => {
   let riskScore = 0;
   const riskFactors: Array<{ level: "high" | "medium" | "low"; label: string; detail: string }> = [];
 
-  if (compareMoney(job.budget, priceSuggestion.adjustedMin * 10) < 0) {
+  if (compareMoney(job.budget, multiplyMoney(priceSuggestion.adjustedMin, 10)) < 0) {
     riskScore += 30;
-    riskFactors.push({ level: "high", label: "Anggaran di bawah pasaran", detail: `Anggaran Rp ${formatIdrInteger(job.budget)} tergolong rendah. Kisaran pasar: Rp ${priceSuggestion.adjustedMin.toLocaleString("id")} – ${priceSuggestion.adjustedMax.toLocaleString("id")} per unit.` });
-  } else if (compareMoney(job.budget, priceSuggestion.adjustedMid * 10) < 0) {
+    riskFactors.push({ level: "high", label: "Anggaran di bawah pasaran", detail: `Anggaran Rp ${formatIdrInteger(job.budget)} tergolong rendah. Kisaran pasar: Rp ${formatIdrInteger(priceSuggestion.adjustedMin)} – ${formatIdrInteger(priceSuggestion.adjustedMax)} per unit.` });
+  } else if (compareMoney(job.budget, multiplyMoney(priceSuggestion.adjustedMid, 10)) < 0) {
     riskScore += 10;
     riskFactors.push({ level: "medium", label: "Anggaran sedikit di bawah median", detail: "Anggaran bisa membatasi pilihan tenaga ahli terbaik." });
   }

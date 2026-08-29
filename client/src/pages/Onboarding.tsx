@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useProfile, useUpdateProfile, useUpdateRole, useCompleteOnboarding } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
 import { SKILLS_LIST, JOB_CATEGORIES, KKNI_LEVELS } from "@/lib/constants";
+import { canonicalMoneyInput } from "@/lib/utils";
 
 // Steps: 0=PilihPeran, 1=SelamatDatang, 2=InfoDasar, 3=KeahlianPengalaman, 4=Selesai
 const STEPS = ["Pilih Peran", "Selamat Datang", "Info Dasar", "Keahlian & Pengalaman", "Selesai"];
@@ -62,10 +63,17 @@ export default function OnboardingPage() {
   };
 
   const handleFinish = () => {
+    let hourlyRate: string | null;
+    try {
+      hourlyRate = form.hourlyRate ? canonicalMoneyInput(form.hourlyRate) : null;
+    } catch (error) {
+      toast({ title: "Tarif tidak valid", description: (error as Error).message, variant: "destructive" });
+      return;
+    }
     updateProfile(
       {
         ...form,
-        hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : null,
+        hourlyRate,
         yearsExperience: form.yearsExperience ? Number(form.yearsExperience) : null,
       },
       {
@@ -254,7 +262,7 @@ export default function OnboardingPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium mb-1 block">Tarif/Jam (Rp)</label>
-                    <Input type="number" placeholder="150000" value={form.hourlyRate} onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value }))} />
+                    <Input inputMode="numeric" placeholder="150000" value={form.hourlyRate} onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value.replace(/\D/g, "") }))} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-1 block">Pengalaman (thn)</label>
