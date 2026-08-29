@@ -10,6 +10,7 @@ import bcrypt from "bcrypt";
 import { storage, withTransaction, pool } from "./storage.js";
 import { MatchingAgent, PricingAgent, MilestoneAgent, ApplicationRankingAgent, AgentOrchestrator, BrainContractOrchestrator } from "./agents.js";
 import { orchestrateAnswer, SEEDED_QUESTIONS } from "./constructionQA.js";
+import { startSessionPruner } from "./sessionPruning.js";
 import type { User } from "../shared/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,9 +57,12 @@ const sessionStore =
         pool,
         tableName: "session",
         createTableIfMissing: true,
-        pruneSessionInterval: 15 * 60, // prune expired rows every 15 minutes
+        // The retry-aware pruner below owns the schedule.
+        pruneSessionInterval: false,
       })
     : undefined;
+
+const sessionPruner = sessionStore ? startSessionPruner(sessionStore) : undefined;
 
 app.use(
   session({

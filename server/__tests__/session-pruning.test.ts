@@ -50,9 +50,9 @@ describe("PostgreSQL session pruning", () => {
       // Create the isolated table below so the package's fixed
       // "session_pkey" constraint name cannot collide with another test table.
       createTableIfMissing: false,
-      // Match the production configuration so the timer is enabled. The test
-      // invokes pruneSessions directly to avoid waiting 15 minutes.
-      pruneSessionInterval: 15 * 60,
+      // The test invokes pruneSessions directly; production scheduling is
+      // covered separately by the retry-aware pruner test.
+      pruneSessionInterval: false,
     });
 
     await pool.query(`
