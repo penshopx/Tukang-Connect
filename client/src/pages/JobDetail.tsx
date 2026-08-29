@@ -54,7 +54,13 @@ export default function JobDetail() {
   const isClient = user?.id === job.clientId;
   const isWorker = user?.id === job.workerId;
   const isTukang = user?.role === "tukang";
-  const hasApplied = applications.some((a: any) => a.applicantId === user?.id);
+  // Withdrawn/rejected applications remain visible as history, but should not
+  // hide the apply action because they are no longer active submissions.
+  const hasApplied = applications.some(
+    (a: any) =>
+      a.applicantId === user?.id &&
+      (a.status === "pending" || a.status === "accepted")
+  );
   const isParticipant = isClient || isWorker;
   const pendingApps = applications.filter((a: any) => a.status === "pending");
 

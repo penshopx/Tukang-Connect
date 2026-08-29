@@ -538,7 +538,14 @@ app.post("/api/jobs/:id/apply", requireAuth, async (req, res) => {
   const jobId = Number(req.params.id);
   const job = await storage.getJobById(jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
-  const existing = (await storage.getApplicationsByJob(jobId)).find((a) => a.applicantId === req.session.userId!);
+  // Withdrawn and rejected applications are historical records, not active
+  // submissions. Keep them for the client's history while allowing the worker
+  // to submit a new application. Pending and accepted remain duplicate-proof.
+  const existing = (await storage.getApplicationsByJob(jobId)).find(
+    (a) =>
+      a.applicantId === req.session.userId! &&
+      (a.status === "pending" || a.status === "accepted")
+  );
   if (existing) return res.status(400).json({ error: "Sudah melamar" });
   const application = await storage.createApplication({
     jobId,

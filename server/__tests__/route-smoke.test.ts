@@ -20,6 +20,10 @@ vi.mock("../storage.js", () => ({
     getUserById: vi.fn(),
     getJobs: vi.fn(),
     getUsers: vi.fn(),
+    getJobById: vi.fn(),
+    getApplicationsByJob: vi.fn(),
+    createApplication: vi.fn(),
+    createNotification: vi.fn(),
     getContracts: vi.fn(),
     getAnalytics: vi.fn(),
   },
@@ -51,6 +55,15 @@ const ADMIN = {
   email: "route-admin@example.com",
   role: "admin",
   fullName: "Route Admin",
+};
+
+const WORKER = {
+  ...OWNER,
+  id: 13,
+  username: "route-worker",
+  email: "route-worker@example.com",
+  role: "tukang",
+  fullName: "Route Worker",
 };
 
 const JOB = {
@@ -185,6 +198,71 @@ describe("Express route smoke tests", () => {
         },
       ]);
       expect(storage.getContracts).toHaveBeenCalledWith(OWNER.id);
+    });
+
+    describe("job applications", () => {
+      const withdrawnApplication = {
+        id: 41,
+        jobId: JOB.id,
+        applicantId: WORKER.id,
+        message: "Lamaran lama",
+        proposedBudget: 90000000,
+        status: "withdrawn",
+        createdAt: "2024-01-04T00:00:00.000Z",
+      };
+
+      beforeEach(() => {
+        vi.mocked(storage.getJobById).mockResolvedValue(JOB as any);
+        vi.mocked(storage.createNotification).mockResolvedValue(undefined as any);
+      });
+
+      it("allows a new application after the previous one was withdrawn", async () => {
+        const renewedApplication = {
+          ...withdrawnApplication,
+          id: 42,
+          message: "Saya siap mengerjakan proyek ini",
+          status: "pending",
+          createdAt: "2024-01-05T00:00:00.000Z",
+        };
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([
+          withdrawnApplication,
+        ] as any);
+        vi.mocked(storage.createApplication).mockResolvedValueOnce(renewedApplication as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent
+          .post(`/api/jobs/${JOB.id}/apply`)
+          .send({ message: renewedApplication.message, proposedBudget: 95000000 });
+
+        expect(response.status).toBe(201);
+        expect(response.body).toEqual(renewedApplication);
+        expect(storage.createApplication).toHaveBeenCalledWith({
+          jobId: JOB.id,
+          applicantId: WORKER.id,
+          message: renewedApplication.message,
+          proposedBudget: 95000000,
+          status: "pending",
+        });
+        expect(storage.createApplication).toHaveBeenCalledOnce();
+      });
+
+      it.each(["pending", "accepted"] as const)(
+        "rejects a duplicate when the previous application is %s",
+        async (status) => {
+          vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([
+            { ...withdrawnApplication, status },
+          ] as any);
+
+          const agent = await authenticatedAgent(WORKER);
+          const response = await agent
+            .post(`/api/jobs/${JOB.id}/apply`)
+            .send({ message: "Lamaran duplikat" });
+
+          expect(response.status).toBe(400);
+          expect(response.body).toEqual({ error: "Sudah melamar" });
+          expect(storage.createApplication).not.toHaveBeenCalled();
+        }
+      );
     });
   });
 
