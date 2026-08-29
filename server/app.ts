@@ -104,6 +104,8 @@ for (const method of _routeMethods) {
 }
 const publicDir = path.join(__dirname, "../public");
 const isProd = fs.existsSync(publicDir);
+const isProductionEnvironment = process.env.NODE_ENV === "production";
+const DEVELOPMENT_SESSION_SECRET = "development-only-session-secret";
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -120,6 +122,37 @@ const sessionStore =
         pruneSessionInterval: false,
       })
     : undefined;
+
+function getSessionOptions(
+  store: session.Store | undefined,
+  environment = process.env.NODE_ENV,
+  configuredSecret = process.env.SESSION_SECRET,
+): session.SessionOptions {
+  const production = environment === "production";
+  if (production && !configuredSecret?.trim()) {
+    throw new Error("SESSION_SECRET must be configured in production");
+  }
+
+  return {
+    store,
+    secret: configuredSecret || DEVELOPMENT_SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    proxy: production,
+    cookie: {
+      secure: production,
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  };
+}
+
+if (isProductionEnvironment) {
+  // Replit terminates TLS at its proxy. Trust the first proxy hop so Express
+  // recognizes HTTPS and express-session can emit Secure cookies.
+  app.set("trust proxy", 1);
+}
 
 type SessionPruningHealth =
   | { status: "ok"; lastIncidentId?: string; recoveredAt?: string }
@@ -159,13 +192,7 @@ const sessionPruner = sessionStore
   : undefined;
 
 app.use(
-  session({
-    store: sessionStore,
-    secret: process.env.SESSION_SECRET || "kerja-proyek-secret-2025",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: false, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
-  })
+  session(getSessionOptions(sessionStore))
 );
 
 app.get("/api/health", async (_req, res) => {
@@ -1988,4 +2015,4 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(status).json({ error: "Service temporarily unavailable" });
 });
 
-export { app };
+export { app, getSessionOptions };
