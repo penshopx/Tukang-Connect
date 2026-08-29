@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FloatingChatbot from "@/components/FloatingChatbot";
+import DatabaseStatusBanner from "@/components/DatabaseStatusBanner";
 
 // Keep the initial desktop shell small. Each page loads only when its route is visited.
 const HomePage = lazy(() => import("@/pages/Home"));
@@ -96,6 +97,7 @@ export default function App() {
       </main>
       {showFooter && <Footer />}
       <FloatingChatbot />
+      <DatabaseStatusBanner />
       <Toaster />
     </div>
   );

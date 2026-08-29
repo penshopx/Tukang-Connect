@@ -61,6 +61,20 @@ app.use(
   })
 );
 
+app.get("/api/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok" });
+  } catch (err) {
+    console.error("[health] database check failed:", err);
+    res.status(503).json({
+      status: "degraded",
+      code: "DB_UNAVAILABLE",
+      error: "Database sedang tidak dapat dijangkau",
+    });
+  }
+});
+
 declare module "express-session" {
   interface SessionData {
     userId?: number;
@@ -1433,8 +1447,31 @@ if (isProd) {
 // ─── Global error handler ─────────────────────────────────────────────────────
 // Must be registered after all routes. Catches errors forwarded via next(err),
 // including DB connection failures propagated by the asyncHandler wrapper above.
+function isDatabaseError(err: any): boolean {
+  const code = err?.code;
+  if (
+    [
+      "57P01", "57P02", "57P03",
+      "08000", "08001", "08003", "08004", "08006", "08007", "08009",
+      "08046", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN",
+    ].includes(code)
+  ) {
+    return true;
+  }
+
+  const message = String(err?.message || "").toLowerCase();
+  return /database|postgres|connection|pool|timeout expired|connect econn/.test(message);
+}
+
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("[server] unhandled error:", err);
+  if (isDatabaseError(err)) {
+    return res.status(503).json({
+      code: "DB_UNAVAILABLE",
+      error: "Database sedang tidak dapat dijangkau. Silakan coba lagi sebentar.",
+    });
+  }
+
   const status = typeof err.status === "number" ? err.status : 500;
   res.status(status).json({ error: "Service temporarily unavailable" });
 });
