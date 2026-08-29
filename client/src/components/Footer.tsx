@@ -11,7 +11,10 @@ export default function Footer() {
               <div className="bg-slate-950 p-2.5 rounded-2xl shadow-sm">
                 <HardHat className="h-14 w-14 text-orange-500" strokeWidth={2.25} />
               </div>
-              <span className="font-extrabold text-5xl text-white tracking-[0.04em]">KERJAPROYEK</span>
+              <span className="font-extrabold text-5xl text-white tracking-[0.04em] leading-[0.82]">
+                <span className="block">KERJA</span>
+                <span className="block">PROYEK</span>
+              </span>
             </div>
             <p className="text-sm text-gray-400 max-w-sm">
               Platform marketplace kerja konstruksi Indonesia — menghubungkan owner/boher dengan tukang, 

@@ -128,7 +128,10 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
             <div className="bg-white p-3 rounded-3xl shadow-lg">
               <HardHat className="h-16 w-16 text-orange-500" strokeWidth={2.25} />
             </div>
-            <span className="font-extrabold text-5xl text-sky-300 tracking-[0.04em]">KERJAPROYEK</span>
+            <span className="font-extrabold text-5xl text-sky-300 tracking-[0.04em] leading-[0.82] text-left">
+              <span className="block">KERJA</span>
+              <span className="block">PROYEK</span>
+            </span>
           </div>
           <p className="text-slate-400 text-sm">Marketplace Kerja Konstruksi — Harian & Borongan</p>
         </div>

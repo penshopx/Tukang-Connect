@@ -70,7 +70,10 @@ export default function Navbar() {
             <div className="bg-slate-950 p-2.5 rounded-2xl shadow-sm">
               <HardHat className="h-14 w-14 text-orange-500" strokeWidth={2.25} />
             </div>
-            <span className="hidden sm:block text-primary text-3xl lg:text-5xl font-extrabold tracking-[0.04em]">KERJAPROYEK</span>
+            <span className="hidden sm:block text-primary text-3xl lg:text-5xl font-extrabold tracking-[0.04em] leading-[0.82]">
+              <span className="block">KERJA</span>
+              <span className="block">PROYEK</span>
+            </span>
           </Link>
 
           {/* Desktop Nav */}
