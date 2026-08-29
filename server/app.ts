@@ -354,7 +354,12 @@ app.post("/api/logout", (req, res) => {
 app.get("/api/auth/user", async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
   const user = await storage.getUserById(req.session.userId);
-  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  if (!user) {
+    const unauthenticatedResponse = { error: "Not authenticated" };
+    return req.session.destroy(() => {
+      res.status(401).json(unauthenticatedResponse);
+    });
+  }
   const { password: _, ...safeUser } = user;
   res.json(safeUser);
 });

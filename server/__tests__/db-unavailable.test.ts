@@ -353,6 +353,16 @@ describe("API routes when database is unreachable", () => {
       expect(res.body).toEqual({ error: "Not authenticated" });
       expect(res.body).not.toHaveProperty("stack");
       expect(res.body).not.toHaveProperty("message");
+
+      // The stale session must be gone, so the same cookie cannot authenticate
+      // a later request even if an account with that id becomes available again.
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(FAKE_USER as any);
+      const subsequentRes = await agent.get("/api/auth/user");
+
+      expect(subsequentRes.status).toBe(401);
+      expect(subsequentRes.headers["content-type"]).toMatch(/application\/json/);
+      expect(subsequentRes.body).toEqual({ error: "Not authenticated" });
+      expect(storage.getUserById).toHaveBeenCalledTimes(1);
     });
   });
 
