@@ -25,6 +25,7 @@ vi.mock("../storage.js", () => ({
     updateJob: vi.fn(),
     getApplicationsByJob: vi.fn(),
     getProfiles: vi.fn(),
+    updateProfile: vi.fn(),
     getApplicationById: vi.fn(),
     updateApplication: vi.fn(),
     createApplication: vi.fn(),
@@ -221,6 +222,32 @@ describe("Express route smoke tests", () => {
       });
     });
 
+    it("distinguishes invalid persisted money from a database outage", async () => {
+      const invalidMoneyCause = Object.assign(
+        new Error("Invalid monetary value for jobs.budget"),
+        { name: "InvalidMoneyError", code: "INVALID_MONEY_DATA" },
+      );
+      const storageError = Object.assign(
+        new Error("Storage operation failed: getJobById"),
+        { name: "StorageError", source: "storage", cause: invalidMoneyCause },
+      );
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.mocked(storage.getJobById).mockRejectedValueOnce(storageError);
+
+      const response = await request(app).get(`/api/jobs/${JOB.id}`);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        code: "INVALID_MONEY_DATA",
+        error: "Data nominal di server berada di luar rentang yang didukung.",
+      });
+      expect(errorLog).toHaveBeenCalledWith(
+        `[route] GET /api/jobs/${JOB.id} [data-integrity] unhandled error`,
+        storageError,
+      );
+      errorLog.mockRestore();
+    });
+
     it("returns a canonical string budget that can be sent to the update endpoint", async () => {
       const jobFromGet = { ...JOB, budget: "250000000" };
       vi.mocked(storage.getJobById)
@@ -336,6 +363,79 @@ describe("Express route smoke tests", () => {
       expect(response.body).toEqual({ error: "Unauthorized" });
       expect(storage.getContracts).not.toHaveBeenCalled();
     });
+
+    it("returns safe estimate components that add up exactly", async () => {
+      const agent = await authenticatedAgent(OWNER);
+      const response = await agent.post("/api/estimates").send({
+        category: "Renovasi",
+        area: "125.5",
+        quality: "premium",
+      });
+
+      expect(response.status).toBe(200);
+      const { laborCost, materialCost, overhead, total, perM2 } = response.body;
+      expect(
+        [laborCost, materialCost, overhead, total, perM2].every(
+          (value) => Number.isSafeInteger(value) && value > 0,
+        ),
+      ).toBe(true);
+      expect(BigInt(laborCost) + BigInt(materialCost) + BigInt(overhead)).toBe(BigInt(total));
+    });
+
+    it.each([
+      {
+        area: -1,
+        error: "Luas harus berupa angka minimal 1",
+      },
+      {
+        area: Number.MAX_SAFE_INTEGER,
+        error: "Luas menghasilkan nominal estimasi di luar rentang yang didukung",
+      },
+    ])("rejects estimate area $area before money can become invalid", async ({ area, error }) => {
+      const agent = await authenticatedAgent(OWNER);
+      const response = await agent.post("/api/estimates").send({
+        category: "Renovasi",
+        area,
+        quality: "standar",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error });
+    });
+
+    it("accepts the maximum safe hourly rate without changing its value", async () => {
+      const agent = await authenticatedAgent(WORKER);
+      vi.mocked(storage.updateProfile).mockResolvedValueOnce({
+        userId: WORKER.id,
+        hourlyRate: Number.MAX_SAFE_INTEGER,
+      } as any);
+
+      const response = await agent.put("/api/profiles").send({
+        bio: "Tukang berpengalaman",
+        hourlyRate: Number.MAX_SAFE_INTEGER,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.hourlyRate).toBe(Number.MAX_SAFE_INTEGER);
+      expect(storage.updateProfile).toHaveBeenCalledWith(
+        WORKER.id,
+        expect.objectContaining({ hourlyRate: Number.MAX_SAFE_INTEGER }),
+      );
+    });
+
+    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+      "rejects invalid hourly rate %s before storage",
+      async (hourlyRate) => {
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent.put("/api/profiles").send({ hourlyRate });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({
+          error: `Tarif per jam harus berupa bilangan bulat dari 1 hingga ${Number.MAX_SAFE_INTEGER}`,
+        });
+        expect(storage.updateProfile).not.toHaveBeenCalled();
+      },
+    );
 
     it("destroys a stale session before any protected route handler runs", async () => {
       const agent = await authenticatedAgent();

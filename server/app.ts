@@ -38,6 +38,16 @@ const positiveMoney = z.union([
   }
 });
 const optionalNullablePositiveMoney = positiveMoney.nullable().optional();
+const safeNumberMoney = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const estimateArea = z
+  .union([
+    z.number(),
+    z.string().trim().regex(/^(?:\d+\.?\d*|\.\d+)$/).transform(Number),
+  ])
+  .pipe(z.number().finite().min(1));
+const profileUpdateMoney = z
+  .object({ hourlyRate: safeNumberMoney.nullable().optional() })
+  .passthrough();
 const updateJobSchema = z
   .object({
     title: nonBlankString,
@@ -726,7 +736,13 @@ app.get("/api/profiles/:userId", async (req, res) => {
 });
 
 app.put("/api/profiles", requireAuth, async (req, res) => {
-  const updated = await storage.updateProfile(req.session.userId!, req.body);
+  const parsed = profileUpdateMoney.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: `Tarif per jam harus berupa bilangan bulat dari 1 hingga ${Number.MAX_SAFE_INTEGER}`,
+    });
+  }
+  const updated = await storage.updateProfile(req.session.userId!, parsed.data);
   if (!updated) return res.status(404).json({ error: "Profile not found" });
   res.json(updated);
 });
@@ -1409,18 +1425,36 @@ app.post("/api/estimates", requireAuth, (req, res) => {
   };
   const base = baseRates[category] || 1500000;
   const multiplier = qualityMultiplier[quality] || 1.0;
-  const areaNum = Number(area) || 50;
-  const laborCost = base * areaNum * multiplier * 0.35;
-  const materialCost = base * areaNum * multiplier * 0.55;
-  const overhead = base * areaNum * multiplier * 0.1;
-  const total = laborCost + materialCost + overhead;
+  const parsedArea = estimateArea.safeParse(area);
+  if (!parsedArea.success) {
+    return res.status(400).json({ error: "Luas harus berupa angka minimal 1" });
+  }
+
+  const areaNum = parsedArea.data;
+  const total = Math.round(base * areaNum * multiplier);
+  if (!Number.isSafeInteger(total) || total < 1) {
+    return res.status(400).json({
+      error: "Luas menghasilkan nominal estimasi di luar rentang yang didukung",
+    });
+  }
+
+  const totalInteger = BigInt(total);
+  const laborCost = (totalInteger * 35n) / 100n;
+  const materialCost = (totalInteger * 55n) / 100n;
+  const overhead = totalInteger - laborCost - materialCost;
+  const perM2 = Math.round(total / areaNum);
+  if (!Number.isSafeInteger(perM2) || perM2 < 1) {
+    return res.status(400).json({
+      error: "Luas menghasilkan nominal estimasi di luar rentang yang didukung",
+    });
+  }
 
   res.json({
-    laborCost: Math.round(laborCost),
-    materialCost: Math.round(materialCost),
-    overhead: Math.round(overhead),
-    total: Math.round(total),
-    perM2: Math.round(total / areaNum),
+    laborCost: Number(laborCost),
+    materialCost: Number(materialCost),
+    overhead: Number(overhead),
+    total,
+    perM2,
   });
 });
 
@@ -1463,6 +1497,16 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
     }
     const budget = canonicalMoney(lockedApplication.proposed_budget ?? lockedJob.budget);
     const milestones = MilestoneAgent.generateMilestones(lockedJob.category, budget, startDate);
+    const milestoneAmounts = milestones.map((milestone) => canonicalMoney(milestone.amount));
+    const milestoneTotal = milestoneAmounts.reduce(
+      (total, amount) => total + BigInt(amount),
+      0n,
+    );
+    if (milestones.length === 0 || milestoneTotal !== BigInt(budget)) {
+      const err: any = new Error("Generated milestone allocation is invalid");
+      err.status = 500;
+      throw err;
+    }
     const acceptResult = await client.query(
       "UPDATE job_applications SET status = 'accepted' WHERE id = $1 AND status = 'pending' RETURNING id",
       [appId]
@@ -1497,8 +1541,8 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
        budget, "active", true, false, startDate, lockedJob.deadline || null]
     );
     const contract = contractFromRow(cr.rows[0]);
-    for (const ms of milestones) {
-      const amount = canonicalMoney(ms.amount);
+    for (const [index, ms] of milestones.entries()) {
+      const amount = milestoneAmounts[index];
       await client.query(
         `INSERT INTO milestones (contract_id, title, description, amount, status, due_date, completed_at, notes)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -2096,15 +2140,38 @@ function isStorageOrDatabaseError(error: unknown): boolean {
   return false;
 }
 
+function isInvalidMoneyDataError(error: unknown): boolean {
+  let current: any = error;
+  const visited = new Set<unknown>();
+
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    if (current.code === "INVALID_MONEY_DATA" || current.name === "InvalidMoneyError") {
+      return true;
+    }
+    current = current.cause;
+  }
+
+  return false;
+}
+
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const isInvalidMoneyData = isInvalidMoneyDataError(err);
   const isStorageError = isStorageOrDatabaseError(err);
-  const source = isStorageError ? "storage" : "application";
+  const source = isInvalidMoneyData ? "data-integrity" : isStorageError ? "storage" : "application";
   console.error(`[route] ${req.method} ${req.originalUrl} [${source}] unhandled error`, err);
 
   // Delegate if another middleware already started the response. This keeps
   // Express from attempting to write a second response while still recording
   // the failure above.
   if (res.headersSent) return next(err);
+
+  if (isInvalidMoneyData) {
+    return res.status(500).json({
+      code: "INVALID_MONEY_DATA",
+      error: "Data nominal di server berada di luar rentang yang didukung.",
+    });
+  }
 
   if (isStorageError) {
     return res.status(503).json({

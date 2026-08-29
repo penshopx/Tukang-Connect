@@ -66,6 +66,45 @@ const CONTRACT_ROW = {
   end_date: null,
 };
 
+const PROFILE_ROW = {
+  id: 61,
+  user_id: 22,
+  bio: "Tukang berpengalaman",
+  location: "Jakarta",
+  skills: ["Renovasi"],
+  category: "Renovasi",
+  hourly_rate: String(Number.MAX_SAFE_INTEGER),
+  is_verified: false,
+  is_mandor: false,
+  certifications: [],
+  avatar_url: null,
+  completed_projects: 0,
+  rating: 0,
+  rating_count: 0,
+  years_experience: 5,
+  phone: null,
+  kkni_level: null,
+};
+
+const PROFILE_INPUT = {
+  userId: PROFILE_ROW.user_id,
+  bio: PROFILE_ROW.bio,
+  location: PROFILE_ROW.location,
+  skills: PROFILE_ROW.skills,
+  category: PROFILE_ROW.category,
+  hourlyRate: Number.MAX_SAFE_INTEGER,
+  isVerified: PROFILE_ROW.is_verified,
+  isMandor: PROFILE_ROW.is_mandor,
+  certifications: PROFILE_ROW.certifications,
+  avatarUrl: PROFILE_ROW.avatar_url,
+  completedProjects: PROFILE_ROW.completed_projects,
+  rating: PROFILE_ROW.rating,
+  ratingCount: PROFILE_ROW.rating_count,
+  yearsExperience: PROFILE_ROW.years_experience,
+  phone: PROFILE_ROW.phone,
+  kkniLevel: PROFILE_ROW.kkni_level,
+};
+
 describe("storage monetary value normalization", () => {
   beforeEach(async () => {
     await startupReady;
@@ -123,6 +162,19 @@ describe("storage monetary value normalization", () => {
       clientId: JOB_ROW.client_id, workerId: null, deadline: null,
     })).rejects.toThrow("Storage operation failed: createJob");
     expect(poolMock.query).not.toHaveBeenCalled();
+  });
+
+  it("tags invalid persisted money as a data-integrity error", async () => {
+    poolMock.query.mockResolvedValueOnce({
+      rows: [{ ...JOB_ROW, budget: "9223372036854775808" }],
+    });
+
+    await expect(storage.getJobById(JOB_ROW.id)).rejects.toMatchObject({
+      cause: {
+        code: "INVALID_MONEY_DATA",
+        field: "jobs.budget",
+      },
+    });
   });
 
   it.each([
@@ -198,6 +250,33 @@ describe("storage monetary value normalization", () => {
     expect(contracts[0]?.totalValue).toBe(BIGINT_CONTRACT_VALUE);
     expect(typeof contracts[0]?.totalValue).toBe("string");
   });
+
+  it("preserves the maximum safe hourly rate when creating a profile", async () => {
+    poolMock.query.mockResolvedValueOnce({ rows: [PROFILE_ROW] });
+
+    const profile = await storage.createProfile(PROFILE_INPUT);
+
+    expect(profile.hourlyRate).toBe(Number.MAX_SAFE_INTEGER);
+    expect(poolMock.query).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO profiles"),
+      expect.arrayContaining([Number.MAX_SAFE_INTEGER]),
+    );
+  });
+
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid profile hourly rate %s before querying PostgreSQL",
+    async (hourlyRate) => {
+      await expect(
+        storage.updateProfile(PROFILE_ROW.user_id, { hourlyRate }),
+      ).rejects.toMatchObject({
+        cause: {
+          code: "INVALID_MONEY_DATA",
+          field: "profiles.hourly_rate",
+        },
+      });
+      expect(poolMock.query).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("storage dispute visibility", () => {

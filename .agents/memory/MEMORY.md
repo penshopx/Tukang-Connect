@@ -5,3 +5,4 @@
 - [Playwright on Nix](playwright-nix-runner.md) — local Chromium may lack shared libraries; distinguish runner setup failures from browser-tested app regressions.
 - [Contract authorization rules](contract-authorization.md) — contract participants need both actor-role checks and server-side milestone state-transition checks.
 - [Exact monetary values](exact-monetary-values.md) — persisted BIGINT money crosses database, API, and UI boundaries as canonical decimal strings.
+- [Money invariant audits](money-invariant-audits.md) — audit every persisted and derived monetary path, including direct SQL writes and secondary calculators.
