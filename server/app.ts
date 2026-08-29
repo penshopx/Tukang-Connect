@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import { Issuer, generators } from "openid-client";
 import bcrypt from "bcrypt";
 import { z } from "zod";
-import { storage, withTransaction, pool } from "./storage.js";
+import { storage, withTransaction, pool, contractFromRow } from "./storage.js";
 import { MatchingAgent, PricingAgent, MilestoneAgent, ApplicationRankingAgent, AgentOrchestrator, BrainContractOrchestrator } from "./agents.js";
 import { orchestrateAnswer, SEEDED_QUESTIONS } from "./constructionQA.js";
 import { startSessionPruner } from "./sessionPruning.js";
@@ -20,12 +20,14 @@ const MIN_PASSWORD_LENGTH = 8;
 
 const nonBlankString = z.string().refine((value) => value.trim().length > 0);
 const validDeadline = z.string().date().or(z.string().datetime({ offset: true }));
+const positiveMoney = z.number().finite().positive();
+const optionalNullablePositiveMoney = positiveMoney.nullable().optional();
 const updateJobSchema = z
   .object({
     title: nonBlankString,
     description: nonBlankString,
     category: nonBlankString,
-    budget: z.number().finite().positive(),
+    budget: positiveMoney,
     location: nonBlankString,
     deadline: validDeadline.or(z.null()),
   })
@@ -37,7 +39,7 @@ const createJobSchema = z
     title: nonBlankString,
     description: nonBlankString,
     category: nonBlankString,
-    budget: z.number().finite().positive(),
+    budget: positiveMoney,
     location: nonBlankString,
     deadline: validDeadline.or(z.null()).optional(),
   })
@@ -626,11 +628,15 @@ app.post("/api/jobs/:id/apply", requireAuth, async (req, res) => {
       (a.status === "pending" || a.status === "accepted")
   );
   if (existing) return res.status(400).json({ error: "Sudah melamar" });
+  const parsedProposedBudget = optionalNullablePositiveMoney.safeParse(req.body?.proposedBudget);
+  if (!parsedProposedBudget.success) {
+    return res.status(400).json({ error: "Nominal penawaran tidak valid" });
+  }
   const application = await storage.createApplication({
     jobId,
     applicantId: req.session.userId!,
     message: req.body.message || null,
-    proposedBudget: req.body.proposedBudget || null,
+    proposedBudget: parsedProposedBudget.data ?? null,
     status: "pending",
   });
   await storage.createNotification({
@@ -654,7 +660,14 @@ app.put("/api/applications/:id", requireAuth, async (req, res) => {
 
   const user = req.authenticatedUser!;
 
-  const body = req.body && typeof req.body === "object" ? req.body : {};
+  let body = req.body && typeof req.body === "object" ? req.body : {};
+  if ("proposedBudget" in body) {
+    const parsedProposedBudget = positiveMoney.nullable().safeParse(body.proposedBudget);
+    if (!parsedProposedBudget.success) {
+      return res.status(400).json({ error: "Nominal penawaran tidak valid" });
+    }
+    body = { ...body, proposedBudget: parsedProposedBudget.data };
+  }
   const requestedFields = Object.keys(body);
   let update: Record<string, unknown>;
 
@@ -778,12 +791,27 @@ app.get("/api/contracts/:id", requireAuth, async (req, res) => {
 });
 
 app.post("/api/contracts", requireAuth, async (req, res) => {
-  const contract = await storage.createContract(req.body);
+  const parsedTotalValue = positiveMoney.safeParse(req.body?.totalValue);
+  if (!parsedTotalValue.success) {
+    return res.status(400).json({ error: "Nilai kontrak tidak valid" });
+  }
+  const contract = await storage.createContract({
+    ...req.body,
+    totalValue: parsedTotalValue.data,
+  });
   res.status(201).json(contract);
 });
 
 app.put("/api/contracts/:id", requireAuth, async (req, res) => {
-  const updated = await storage.updateContract(Number(req.params.id), req.body);
+  let update = req.body && typeof req.body === "object" ? req.body : {};
+  if ("totalValue" in update) {
+    const parsedTotalValue = positiveMoney.safeParse(update.totalValue);
+    if (!parsedTotalValue.success) {
+      return res.status(400).json({ error: "Nilai kontrak tidak valid" });
+    }
+    update = { ...update, totalValue: parsedTotalValue.data };
+  }
+  const updated = await storage.updateContract(Number(req.params.id), update);
   if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);
 });
@@ -802,7 +830,15 @@ app.post("/api/contracts/:id/sign", requireAuth, async (req, res) => {
 
 // Milestones
 app.post("/api/contracts/:contractId/milestones", requireAuth, async (req, res) => {
-  const milestone = await storage.createMilestone({ ...req.body, contractId: Number(req.params.contractId) });
+  const parsedAmount = positiveMoney.safeParse(req.body?.amount);
+  if (!parsedAmount.success) {
+    return res.status(400).json({ error: "Nilai milestone tidak valid" });
+  }
+  const milestone = await storage.createMilestone({
+    ...req.body,
+    amount: parsedAmount.data,
+    contractId: Number(req.params.contractId),
+  });
   res.status(201).json(milestone);
 });
 
@@ -1131,7 +1167,7 @@ app.post("/api/jobs/:jobId/applications/:appId/accept", requireAuth, async (req,
       [jobId, job.clientId, application.applicantId, `Kontrak: ${job.title}`, job.description,
        budget, "active", true, false, startDate, job.deadline || null]
     );
-    const contract = cr.rows[0];
+    const contract = contractFromRow(cr.rows[0]);
     for (const ms of milestones) {
       await client.query(
         `INSERT INTO milestones (contract_id, title, description, amount, status, due_date, completed_at, notes)
@@ -1293,15 +1329,25 @@ app.get("/api/agents/match/:jobId", async (req, res) => {
 app.post("/api/agents/price-suggest", (req, res) => {
   const { category, location, existingBudget } = req.body;
   if (!category || !location) return res.status(400).json({ error: "category dan location diperlukan" });
-  const result = PricingAgent.suggestPrice(category, location, existingBudget ? Number(existingBudget) : undefined);
+  const parsedExistingBudget = positiveMoney.optional().safeParse(existingBudget);
+  if (!parsedExistingBudget.success) {
+    return res.status(400).json({ error: "existingBudget harus berupa angka positif" });
+  }
+  const result = PricingAgent.suggestPrice(category, location, parsedExistingBudget.data);
   res.json({ agent: PricingAgent.name, ...result });
 });
 
 app.post("/api/agents/milestones", (req, res) => {
   const { category, budget, startDate } = req.body;
-  if (!category || !budget) return res.status(400).json({ error: "category dan budget diperlukan" });
-  const milestones = MilestoneAgent.generateMilestones(category, Number(budget), startDate);
-  res.json({ agent: MilestoneAgent.name, category, budget: Number(budget), milestones });
+  if (!category || budget === undefined || budget === null) {
+    return res.status(400).json({ error: "category dan budget diperlukan" });
+  }
+  const parsedBudget = positiveMoney.safeParse(budget);
+  if (!parsedBudget.success) {
+    return res.status(400).json({ error: "budget harus berupa angka positif" });
+  }
+  const milestones = MilestoneAgent.generateMilestones(category, parsedBudget.data, startDate);
+  res.json({ agent: MilestoneAgent.name, category, budget: parsedBudget.data, milestones });
 });
 
 app.get("/api/agents/rank-applications/:jobId", requireAuth, async (req, res) => {

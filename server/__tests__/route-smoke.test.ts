@@ -174,6 +174,33 @@ describe("Express route smoke tests", () => {
       expect(response.body.adjustedMid).toEqual(expect.any(Number));
       expect(response.body.adjustedMax).toEqual(expect.any(Number));
     });
+
+    it.each([
+      {
+        path: "/api/agents/price-suggest",
+        payload: { category: "Renovasi", location: "Jakarta", existingBudget: "100000000" },
+      },
+      {
+        path: "/api/agents/milestones",
+        payload: { category: "Renovasi", budget: "100000000" },
+      },
+    ])("rejects string budget values at $path", async ({ path, payload }) => {
+      const response = await request(app).post(path).send(payload);
+
+      expect(response.status).toBe(400);
+    });
+
+    it("returns milestone budgets and amounts as numbers", async () => {
+      const response = await request(app)
+        .post("/api/agents/milestones")
+        .send({ category: "Renovasi", budget: 100000000 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.budget).toBe(100000000);
+      expect(response.body.budget).toEqual(expect.any(Number));
+      expect(response.body.milestones.length).toBeGreaterThan(0);
+      expect(response.body.milestones[0].amount).toEqual(expect.any(Number));
+    });
   });
 
   describe("authenticated routes", () => {
@@ -424,6 +451,19 @@ describe("Express route smoke tests", () => {
           status: "pending",
         });
         expect(storage.createApplication).toHaveBeenCalledOnce();
+      });
+
+      it("rejects a proposed budget sent as a string", async () => {
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([] as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const response = await agent
+          .post(`/api/jobs/${JOB.id}/apply`)
+          .send({ message: "Saya siap", proposedBudget: "95000000" });
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "Nominal penawaran tidak valid" });
+        expect(storage.createApplication).not.toHaveBeenCalled();
       });
 
       it.each(["pending", "accepted"] as const)(

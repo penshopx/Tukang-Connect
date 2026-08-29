@@ -46,6 +46,20 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
 }
 
 // Row mappers: snake_case DB columns → camelCase TS types
+function requiredDatabaseNumber(value: unknown, field: string): number {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    throw new Error(`Invalid numeric database value for ${field}`);
+  }
+  return number;
+}
+
+function nullableDatabaseNumber(value: unknown, field: string): number | null {
+  return value === null || value === undefined
+    ? null
+    : requiredDatabaseNumber(value, field);
+}
+
 function userFromRow(r: any): User {
   return {
     id: r.id,
@@ -68,7 +82,7 @@ function profileFromRow(r: any): Profile {
     location: r.location,
     skills: r.skills ?? [],
     category: r.category,
-    hourlyRate: r.hourly_rate,
+    hourlyRate: nullableDatabaseNumber(r.hourly_rate, "profiles.hourly_rate"),
     isVerified: r.is_verified,
     isMandor: r.is_mandor,
     certifications: r.certifications ?? [],
@@ -88,7 +102,7 @@ function jobFromRow(r: any): Job {
     title: r.title,
     description: r.description,
     category: r.category,
-    budget: r.budget,
+    budget: requiredDatabaseNumber(r.budget, "jobs.budget"),
     location: r.location,
     status: r.status,
     clientId: r.client_id,
@@ -104,13 +118,13 @@ function applicationFromRow(r: any): JobApplication {
     jobId: r.job_id,
     applicantId: r.applicant_id,
     message: r.message,
-    proposedBudget: r.proposed_budget,
+    proposedBudget: nullableDatabaseNumber(r.proposed_budget, "job_applications.proposed_budget"),
     status: r.status,
     createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : r.created_at,
   };
 }
 
-function contractFromRow(r: any): Contract {
+export function contractFromRow(r: any): Contract {
   return {
     id: r.id,
     jobId: r.job_id,
@@ -118,7 +132,7 @@ function contractFromRow(r: any): Contract {
     workerId: r.worker_id,
     title: r.title,
     description: r.description,
-    totalValue: r.total_value,
+    totalValue: requiredDatabaseNumber(r.total_value, "contracts.total_value"),
     status: r.status,
     clientSigned: r.client_signed,
     workerSigned: r.worker_signed,
@@ -134,7 +148,7 @@ function milestoneFromRow(r: any): Milestone {
     contractId: r.contract_id,
     title: r.title,
     description: r.description,
-    amount: r.amount,
+    amount: requiredDatabaseNumber(r.amount, "milestones.amount"),
     status: r.status,
     dueDate: r.due_date instanceof Date ? r.due_date.toISOString() : r.due_date,
     completedAt: r.completed_at instanceof Date ? r.completed_at.toISOString() : r.completed_at,
