@@ -129,16 +129,22 @@ describe("PostgreSQL session pruning", () => {
     });
 
     const onError = vi.fn();
+    const onWarning = vi.fn();
+    const onRecovery = vi.fn();
     vi.useFakeTimers();
     const pruner = startSessionPruner(retryStore, {
       intervalMs: 15 * 60 * 1000,
       retryDelayMs: 1_000,
       onError,
+      onWarning,
+      onRecovery,
     });
 
     try {
       await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
       expect(onError).toHaveBeenCalledTimes(1);
+      expect(onWarning).not.toHaveBeenCalled();
+      expect(onRecovery).not.toHaveBeenCalled();
 
       const afterFailedPrune = await pool.query(
         `SELECT sid FROM "${tableName}" WHERE sid = $1`,
@@ -155,10 +161,91 @@ describe("PostgreSQL session pruning", () => {
         [retryExpiredSid],
       );
       expect(afterRetry.rowCount).toBe(0);
+      expect(onWarning).not.toHaveBeenCalled();
+      expect(onRecovery).not.toHaveBeenCalled();
     } finally {
       pruner.stop();
       vi.useRealTimers();
       await retryStore.close();
+    }
+  });
+
+  it("emits one warning and one recovery for a sustained PGStore pruning outage", async () => {
+    const sustainedExpiredSid = `expired-sustained-${randomUUID()}`;
+    let failedPrunes = 0;
+    const flakyPool = {
+      query(query: string, params?: unknown[]) {
+        if (query.startsWith("DELETE FROM") && failedPrunes < 3) {
+          failedPrunes += 1;
+          return Promise.reject(new Error("database unavailable"));
+        }
+
+        return pool.query(query, params);
+      },
+    } as unknown as pg.Pool;
+    const sustainedStore = new PGStore({
+      pool: flakyPool,
+      tableName,
+      createTableIfMissing: false,
+      pruneSessionInterval: false,
+    });
+
+    await setSession(sustainedStore, sustainedExpiredSid, {
+      cookie: {
+        originalMaxAge: null,
+        expires: new Date(Date.now() - 60_000),
+      } as session.Cookie,
+    });
+
+    const incidentSignals: string[] = [];
+    let resolveWarning!: () => void;
+    let resolveRecovery!: () => void;
+    const warningObserved = new Promise<void>((resolve) => {
+      resolveWarning = resolve;
+    });
+    const recoveryObserved = new Promise<void>((resolve) => {
+      resolveRecovery = resolve;
+    });
+    const onError = vi.fn();
+    const onWarning = vi.fn(() => {
+      incidentSignals.push("warning");
+      resolveWarning();
+    });
+    const onRecovery = vi.fn(() => {
+      incidentSignals.push("recovery");
+      resolveRecovery();
+    });
+    const pruner = startSessionPruner(sustainedStore, {
+      intervalMs: 10,
+      retryDelayMs: 10,
+      onError,
+      onWarning,
+      onRecovery,
+    });
+
+    try {
+      await warningObserved;
+      expect(failedPrunes).toBe(3);
+      expect(onError).toHaveBeenCalledTimes(3);
+      expect(onWarning).toHaveBeenCalledTimes(1);
+      expect(onWarning).toHaveBeenCalledWith(expect.any(Error), 3);
+      expect(onRecovery).not.toHaveBeenCalled();
+
+      await recoveryObserved;
+      expect(onError).toHaveBeenCalledTimes(3);
+      expect(onWarning).toHaveBeenCalledTimes(1);
+      expect(onRecovery).toHaveBeenCalledTimes(1);
+      expect(onRecovery).toHaveBeenCalledWith(3);
+      expect(incidentSignals).toEqual(["warning", "recovery"]);
+
+      const afterRecovery = await pool.query(
+        `SELECT sid FROM "${tableName}" WHERE sid = $1`,
+        [sustainedExpiredSid],
+      );
+      expect(afterRecovery.rowCount).toBe(0);
+    } finally {
+      pruner.stop();
+      await sustainedStore.close();
     }
   });
 });

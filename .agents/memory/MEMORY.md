@@ -1,2 +1,3 @@
 - [Replit migration notes](replit-migration.md) — Vite HMR behind Replit proxy + replacing security-blocked deps during agent→Replit import.
 - [Session-store test tables](session-store-test-tables.md) — connect-pg-simple's bundled DDL uses fixed constraint/index names; isolate custom tables with unique names.
+- [PGStore callback timing](pgstore-callback-timing.md) — real PostgreSQL I/O is not completed by advancing fake timers; await warning/recovery signals directly.
