@@ -159,6 +159,30 @@ describe("Express route smoke tests", () => {
       });
     });
 
+    it("returns a numeric budget that can be sent to the update endpoint", async () => {
+      const jobFromGet = { ...JOB, budget: 250000000 };
+      vi.mocked(storage.getJobById)
+        .mockResolvedValueOnce(jobFromGet as any)
+        .mockResolvedValueOnce(jobFromGet as any);
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
+      vi.mocked(storage.updateJob).mockResolvedValueOnce(jobFromGet as any);
+
+      const getResponse = await request(app).get(`/api/jobs/${JOB.id}`);
+
+      expect(getResponse.status).toBe(200);
+      expect(getResponse.body.budget).toEqual(expect.any(Number));
+
+      const agent = await authenticatedAgent(OWNER);
+      const updateResponse = await agent
+        .put(`/api/jobs/${JOB.id}`)
+        .send({ budget: getResponse.body.budget });
+
+      expect(updateResponse.status).toBe(200);
+      expect(storage.updateJob).toHaveBeenCalledWith(JOB.id, {
+        budget: getResponse.body.budget,
+      });
+    });
+
     it("returns a price suggestion with a stable agent response shape", async () => {
       const response = await request(app)
         .post("/api/agents/price-suggest")

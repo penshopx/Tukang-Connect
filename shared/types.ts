@@ -37,6 +37,7 @@ export interface Job {
   title: string;
   description: string;
   category: string;
+  /** Normalized from PostgreSQL BIGINT by the storage layer. */
   budget: number;
   location: string;
   status: "open" | "in_progress" | "completed" | "cancelled";
