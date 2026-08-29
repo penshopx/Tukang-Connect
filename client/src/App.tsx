@@ -3,7 +3,6 @@ import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import NotFound from "@/pages/NotFound";
 import FloatingChatbot from "@/components/FloatingChatbot";
 
 // Keep the initial desktop shell small. Each page loads only when its route is visited.
@@ -33,9 +32,18 @@ const JobBoard = lazy(() => import("@/pages/JobBoard"));
 const Klinika = lazy(() => import("@/pages/Klinika"));
 const Bimtek = lazy(() => import("@/pages/Bimtek"));
 
+const NotFound = lazy(() => import("@/pages/NotFound"));
+
 const NO_NAV_ROUTES = ["/login", "/register", "/onboarding"];
 const NO_FOOTER_ROUTES = ["/login", "/register", "/onboarding", "/chatbot"];
 
+function RouteLoading() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-live="polite">
+      <span className="text-sm text-muted-foreground">Memuat halaman...</span>
+    </div>
+  );
+}
 export default function App() {
   const [location] = useLocation();
   const showNav = !NO_NAV_ROUTES.includes(location);
