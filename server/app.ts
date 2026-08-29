@@ -16,6 +16,7 @@ import {
   startSessionPruner,
   type SessionPruningMonitoringEvent,
 } from "./sessionPruning.js";
+import { createSessionPruningAlertNotifier } from "./sessionPruningAlerts.js";
 import type { User } from "../shared/types.js";
 import { canonicalMoney, compareMoney, formatIdrInteger } from "../shared/money.js";
 
@@ -217,6 +218,7 @@ type SessionPruningHealth =
     };
 
 let sessionPruningHealth: SessionPruningHealth = { status: "ok" };
+const sessionPruningAlertNotifier = createSessionPruningAlertNotifier();
 
 function reportSessionPruningMonitoringEvent(event: SessionPruningMonitoringEvent): void {
   if (event.type === "session_pruning_incident_started") {
@@ -227,6 +229,7 @@ function reportSessionPruningMonitoringEvent(event: SessionPruningMonitoringEven
       startedAt: event.occurredAt,
     };
     console.error(`[health-monitor] ${JSON.stringify(event)}`);
+    sessionPruningAlertNotifier.notify(event);
     return;
   }
 
@@ -236,6 +239,7 @@ function reportSessionPruningMonitoringEvent(event: SessionPruningMonitoringEven
     recoveredAt: event.occurredAt,
   };
   console.info(`[health-monitor] ${JSON.stringify(event)}`);
+  sessionPruningAlertNotifier.notify(event);
 }
 
 const sessionPruner = sessionStore

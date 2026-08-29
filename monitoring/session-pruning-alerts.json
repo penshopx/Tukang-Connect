@@ -1,0 +1,48 @@
+{
+  "name": "SessionPruningUnavailable",
+  "service": "kerja-proyek",
+  "healthCheck": {
+    "method": "GET",
+    "path": "/api/health",
+    "fireWhen": {
+      "httpStatus": 503,
+      "json": {
+        "code": "SESSION_PRUNING_UNAVAILABLE"
+      }
+    },
+    "requiredDetails": [
+      "sessionPruning.incidentId",
+      "sessionPruning.consecutiveFailures"
+    ]
+  },
+  "eventLog": {
+    "fireWhen": {
+      "type": "session_pruning_incident_started"
+    },
+    "resolveWhen": {
+      "type": "session_pruning_incident_recovered",
+      "match": "incidentId"
+    },
+    "requiredDetails": [
+      "incidentId",
+      "consecutiveFailures"
+    ]
+  },
+  "notification": {
+    "method": "POST",
+    "webhookUrlEnvironmentVariable": "SESSION_PRUNING_ALERT_WEBHOOK_URL",
+    "payload": {
+      "alert": "SESSION_PRUNING_UNAVAILABLE",
+      "status": "firing|resolved",
+      "incidentId": "string",
+      "consecutiveFailures": "number",
+      "failureCount": "number"
+    },
+    "deduplicateBy": "incidentId",
+    "resolveWith": "status=resolved and matching incidentId"
+  },
+  "safety": {
+    "databaseAccess": "read-only health probe; alert verification must use a test webhook and mocked pruning store",
+    "productionDataMutation": false
+  }
+}
