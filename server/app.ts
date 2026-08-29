@@ -15,6 +15,7 @@ import type { User } from "../shared/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const MIN_PASSWORD_LENGTH = 8;
 
 const app = express();
 
@@ -314,6 +315,9 @@ app.post("/api/register", async (req, res) => {
     const { username, email, password, fullName, role } = req.body;
     if (typeof password !== "string" || !password.trim()) {
       return res.status(400).json({ error: "Password wajib diisi" });
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Password minimal ${MIN_PASSWORD_LENGTH} karakter` });
     }
     if (await storage.getUserByEmail(email)) {
       return res.status(400).json({ error: "Email sudah terdaftar" });

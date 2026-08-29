@@ -85,7 +85,7 @@ import { app }     from "../app.js";
 // ─── Shared fixture ───────────────────────────────────────────────────────────
 
 // Use a low cost factor so the test runs fast; 1 is the minimum bcrypt allows.
-const PLAIN_PASSWORD  = "hunter2";
+const PLAIN_PASSWORD  = "hunter22";
 const HASHED_PASSWORD = await bcrypt.hash(PLAIN_PASSWORD, 1);
 
 const BASE_USER = {
@@ -263,6 +263,23 @@ describe("POST /api/register — password hashing", () => {
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty("error");
+    expect(storage.createUserWithProfile).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 and does not create a user when the password is too short", async () => {
+    const res = await request(app)
+      .post("/api/register")
+      .send({
+        username: "short-password-user",
+        email: "short-password@example.com",
+        password: "1234567",
+        fullName: "Short Password User",
+        role: "pelanggan",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Password minimal 8 karakter" });
+    expect(storage.getUserByEmail).not.toHaveBeenCalled();
     expect(storage.createUserWithProfile).not.toHaveBeenCalled();
   });
 });
