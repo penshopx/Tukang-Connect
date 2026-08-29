@@ -7,6 +7,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { Issuer, generators } from "openid-client";
 import bcrypt from "bcrypt";
+import { z } from "zod";
 import { storage, withTransaction, pool } from "./storage.js";
 import { MatchingAgent, PricingAgent, MilestoneAgent, ApplicationRankingAgent, AgentOrchestrator, BrainContractOrchestrator } from "./agents.js";
 import { orchestrateAnswer, SEEDED_QUESTIONS } from "./constructionQA.js";
@@ -16,6 +17,21 @@ import type { User } from "../shared/types.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MIN_PASSWORD_LENGTH = 8;
+
+const nonBlankString = z.string().refine((value) => value.trim().length > 0);
+const validDeadline = z.string().date().or(z.string().datetime({ offset: true }));
+const updateJobSchema = z
+  .object({
+    title: nonBlankString,
+    description: nonBlankString,
+    category: nonBlankString,
+    budget: z.number().finite().positive(),
+    location: nonBlankString,
+    deadline: validDeadline.or(z.null()),
+  })
+  .strict()
+  .partial()
+  .refine((payload) => Object.keys(payload).length > 0);
 
 const app = express();
 
@@ -527,7 +543,11 @@ app.put("/api/jobs/:id", requireAuth, async (req, res) => {
     const user = await storage.getUserById(req.session.userId!);
     if (!user || user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
   }
-  const updated = await storage.updateJob(Number(req.params.id), req.body);
+  const parsedPayload = updateJobSchema.safeParse(req.body);
+  if (!parsedPayload.success) {
+    return res.status(400).json({ error: "Payload proyek tidak valid" });
+  }
+  const updated = await storage.updateJob(Number(req.params.id), parsedPayload.data);
   res.json(updated);
 });
 

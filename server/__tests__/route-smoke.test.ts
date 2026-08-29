@@ -250,6 +250,44 @@ describe("Express route smoke tests", () => {
         expect(storage.updateJob).toHaveBeenCalledWith(JOB.id, changes);
         expect(storage.updateJob).toHaveBeenCalledOnce();
       });
+
+      it.each([
+        { deadline: "2024-02-29" },
+        { deadline: "2025-03-04T00:00:00.000Z" },
+        { deadline: null },
+      ])("accepts the supported deadline value $deadline", async (payload) => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.updateJob).mockResolvedValueOnce({ ...JOB, ...payload } as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.put(`/api/jobs/${JOB.id}`).send(payload);
+
+        expect(response.status).toBe(200);
+        expect(storage.updateJob).toHaveBeenCalledWith(JOB.id, payload);
+      });
+
+      it.each([
+        { payload: { clientId: OWNER.id }, label: "rejects fields controlled by the server" },
+        { payload: { budget: "125000000" }, label: "rejects values with the wrong type" },
+        { payload: { title: "   " }, label: "rejects blank required values" },
+        { payload: { deadline: "not-a-date" }, label: "rejects invalid deadline values" },
+        { payload: { deadline: "2024-02-30" }, label: "rejects impossible calendar dates" },
+        { payload: { deadline: "1" }, label: "rejects ambiguous parseable date values" },
+        {
+          payload: { deadline: "March 4, 2025" },
+          label: "rejects prose date values",
+        },
+        { payload: {}, label: "rejects an empty update payload" },
+      ])("$label", async ({ payload }) => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.put(`/api/jobs/${JOB.id}`).send(payload);
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "Payload proyek tidak valid" });
+        expect(storage.updateJob).not.toHaveBeenCalled();
+      });
     });
 
     describe("job applications", () => {
