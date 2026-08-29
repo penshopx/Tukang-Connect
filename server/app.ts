@@ -342,8 +342,12 @@ app.put("/api/users/me/role", requireAuth, async (req, res) => {
   if (!["pelanggan", "tukang"].includes(role)) {
     return res.status(400).json({ error: "Role tidak valid. Pilih 'pelanggan' atau 'tukang'." });
   }
-  await storage.updateUserRole(req.session.userId!, role);
-  res.json({ success: true, role });
+  const withdrawnApplications = await storage.updateUserRole(req.session.userId!, role);
+  res.json({
+    success: true,
+    role,
+    ...(withdrawnApplications > 0 ? { withdrawnApplications } : {}),
+  });
 });
 
 app.get("/api/me", requireAuth, async (req, res) => {

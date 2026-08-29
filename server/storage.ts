@@ -379,8 +379,24 @@ const storageApi = {
   updateUserReplitId: async (userId: number, replitId: string): Promise<void> => {
     await pool.query("UPDATE users SET replit_id = $1 WHERE id = $2", [replitId, userId]);
   },
-  updateUserRole: async (userId: number, role: string): Promise<void> => {
-    await pool.query("UPDATE users SET role = $1 WHERE id = $2", [role, userId]);
+  updateUserRole: async (userId: number, role: string): Promise<number> => {
+    return withTransaction(async (client) => {
+      let withdrawnApplications = 0;
+
+      // A worker can no longer act on pending applications after switching to
+      // pelanggan. Keep the history, but mark those applications as withdrawn
+      // together with the role change so the two states cannot diverge.
+      if (role === "pelanggan") {
+        const result = await client.query(
+          "UPDATE job_applications SET status = 'withdrawn' WHERE applicant_id = $1 AND status = 'pending'",
+          [userId]
+        );
+        withdrawnApplications = result.rowCount ?? 0;
+      }
+
+      await client.query("UPDATE users SET role = $1 WHERE id = $2", [role, userId]);
+      return withdrawnApplications;
+    });
   },
 
   // Atomically create a user + their profile in a single transaction so a DB

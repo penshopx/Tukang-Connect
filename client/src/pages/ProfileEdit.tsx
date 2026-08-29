@@ -94,11 +94,13 @@ export default function ProfileEdit() {
 
   const handleRoleSwitch = () => {
     updateRole(otherRole, {
-      onSuccess: () => {
+      onSuccess: (result: { withdrawnApplications?: number }) => {
         setShowRoleConfirm(false);
         toast({
           title: "Peran Diperbarui!",
-          description: `Akun Anda sekarang terdaftar sebagai ${otherRoleLabel}.`,
+          description: result?.withdrawnApplications
+            ? `Akun Anda sekarang terdaftar sebagai ${otherRoleLabel}. ${result.withdrawnApplications} lamaran yang masih menunggu telah ditarik otomatis.`
+            : `Akun Anda sekarang terdaftar sebagai ${otherRoleLabel}.`,
         });
       },
       onError: (err) => {
@@ -295,6 +297,8 @@ export default function ProfileEdit() {
                         <>
                           <li>Anda bisa memposting lowongan pekerjaan</li>
                           <li>Anda tidak bisa lagi melamar pekerjaan sebagai tukang</li>
+                          <li>Lamaran yang masih menunggu akan ditarik otomatis</li>
+                          <li>Kontrak aktif dan proyek yang pernah Anda posting tetap tersedia</li>
                         </>
                       )}
                     </ul>

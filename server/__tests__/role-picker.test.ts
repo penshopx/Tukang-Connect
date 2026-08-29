@@ -251,6 +251,22 @@ describe("Role picker — PUT /api/users/me/role", () => {
         "pelanggan"
       );
     });
+
+    it("reports how many pending applications were withdrawn", async () => {
+      const agent = await authenticatedAgent(TUKANG_USER);
+      vi.mocked(storage.updateUserRole).mockResolvedValueOnce(2 as any);
+
+      const res = await agent
+        .put("/api/users/me/role")
+        .send({ role: "pelanggan" });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        success: true,
+        role: "pelanggan",
+        withdrawnApplications: 2,
+      });
+    });
   });
 
   // ── Security: unauthenticated request ─────────────────────────────────────

@@ -51,7 +51,7 @@ export interface JobApplication {
   applicantId: number;
   message: string | null;
   proposedBudget: number | null;
-  status: "pending" | "accepted" | "rejected";
+  status: "pending" | "accepted" | "rejected" | "withdrawn";
   createdAt: string;
 }
 
