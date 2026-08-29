@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { CheckCircle, HardHat, User, ChevronRight, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { useProfile, useUpdateProfile, useUpdateRole } from "@/hooks/useUser";
+import { useProfile, useUpdateProfile, useUpdateRole, useCompleteOnboarding } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
 import { SKILLS_LIST, JOB_CATEGORIES, KKNI_LEVELS } from "@/lib/constants";
 
@@ -18,6 +18,7 @@ export default function OnboardingPage() {
   const { data: profile } = useProfile();
   const { mutate: updateProfile } = useUpdateProfile();
   const { mutate: updateRole, isPending: updatingRole } = useUpdateRole();
+  const { mutate: completeOnboarding, isPending: completingOnboarding } = useCompleteOnboarding();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
   const [selectedRole, setSelectedRole] = useState<string>(profile?.role || "pelanggan");
@@ -32,6 +33,12 @@ export default function OnboardingPage() {
     isMandor: false,
     skills: [] as string[],
   });
+
+  useEffect(() => {
+    if (step === 0 && (profile?.role === "pelanggan" || profile?.role === "tukang")) {
+      setSelectedRole(profile.role);
+    }
+  }, [profile?.role, step]);
 
   // After role selection, treat selected role as authoritative for the rest of the flow
   const isTukang = selectedRole === "tukang";
@@ -63,11 +70,42 @@ export default function OnboardingPage() {
       },
       {
         onSuccess: () => {
-          toast({ title: "Profil Berhasil Dibuat!" });
-          navigate("/dashboard");
+          completeOnboarding(undefined, {
+            onSuccess: () => {
+              toast({ title: "Profil Berhasil Dibuat!" });
+              navigate("/dashboard");
+            },
+            onError: () => {
+              toast({
+                title: "Gagal menyelesaikan onboarding",
+                description: "Silakan coba lagi.",
+                variant: "destructive",
+              });
+            },
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Gagal menyimpan profil",
+            description: "Silakan coba lagi.",
+            variant: "destructive",
+          });
         },
       }
     );
+  };
+
+  const handleSkip = () => {
+    completeOnboarding(undefined, {
+      onSuccess: () => navigate("/dashboard"),
+      onError: () => {
+        toast({
+          title: "Gagal menyelesaikan onboarding",
+          description: "Silakan coba lagi.",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   // Visible steps depend on role — tukang has 5 steps, pelanggan has 4 (no skills step)
@@ -196,7 +234,14 @@ export default function OnboardingPage() {
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={() => navigate("/dashboard")}>Lewati</Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleSkip}
+                    disabled={completingOnboarding}
+                  >
+                    {completingOnboarding ? "Menyimpan..." : "Lewati"}
+                  </Button>
                   <Button className="flex-1" onClick={() => setStep(isTukang ? 3 : 4)}>Lanjut</Button>
                 </div>
               </div>
@@ -259,8 +304,9 @@ export default function OnboardingPage() {
                     ? "Profil Anda sudah lengkap. Mulai cari proyek dan kembangkan karir Anda!"
                     : "Profil Anda sudah siap. Mulai temukan tenaga ahli konstruksi terbaik!"}
                 </p>
-                <Button size="lg" className="gap-2" onClick={handleFinish}>
-                  Mulai <ChevronRight className="h-4 w-4" />
+                <Button size="lg" className="gap-2" onClick={handleFinish} disabled={completingOnboarding}>
+                  {completingOnboarding ? "Menyimpan..." : "Mulai"}
+                  {!completingOnboarding && <ChevronRight className="h-4 w-4" />}
                 </Button>
               </div>
             )}

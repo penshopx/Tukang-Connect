@@ -55,6 +55,7 @@ function userFromRow(r: any): User {
     role: r.role,
     fullName: r.full_name,
     createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : r.created_at,
+    onboardingCompleted: r.onboarding_completed ?? false,
     replitId: r.replit_id ?? null,
   };
 }
@@ -233,13 +234,13 @@ async function seedDatabase() {
 
     // Users (passwords stored as bcrypt hashes)
     await client.query(
-      `INSERT INTO users (id, username, email, password, role, full_name, created_at) VALUES
-      ($1, 'budi_pelanggan', 'budi@example.com', $2, 'pelanggan', 'Budi Santoso', '2024-01-15'),
-      ($3, 'ahmad_tukang', 'ahmad@example.com', $4, 'tukang', 'Ahmad Fauzi', '2024-01-10'),
-      ($5, 'siti_tukang', 'siti@example.com', $6, 'tukang', 'Siti Rahayu', '2024-01-12'),
-      ($7, 'admin', 'admin@kerjaproyek.id', $8, 'admin', 'Admin KerjaProyek', '2024-01-01'),
-      ($9, 'rudi_tukang', 'rudi@example.com', $10, 'tukang', 'Rudi Hermawan', '2024-01-08'),
-      ($11, 'dewi_pelanggan', 'dewi@example.com', $12, 'pelanggan', 'Dewi Kusuma', '2024-01-20')
+      `INSERT INTO users (id, username, email, password, role, full_name, created_at, onboarding_completed) VALUES
+      ($1, 'budi_pelanggan', 'budi@example.com', $2, 'pelanggan', 'Budi Santoso', '2024-01-15', true),
+      ($3, 'ahmad_tukang', 'ahmad@example.com', $4, 'tukang', 'Ahmad Fauzi', '2024-01-10', true),
+      ($5, 'siti_tukang', 'siti@example.com', $6, 'tukang', 'Siti Rahayu', '2024-01-12', true),
+      ($7, 'admin', 'admin@kerjaproyek.id', $8, 'admin', 'Admin KerjaProyek', '2024-01-01', true),
+      ($9, 'rudi_tukang', 'rudi@example.com', $10, 'tukang', 'Rudi Hermawan', '2024-01-08', true),
+      ($11, 'dewi_pelanggan', 'dewi@example.com', $12, 'pelanggan', 'Dewi Kusuma', '2024-01-20', true)
       ON CONFLICT DO NOTHING`,
       [
         1, hashPassword123,
@@ -369,10 +370,10 @@ const storageApi = {
     const r = await pool.query("SELECT * FROM users WHERE replit_id = $1", [replitId]);
     return r.rows[0] ? userFromRow(r.rows[0]) : undefined;
   },
-  createUser: async (data: Omit<User, "id" | "createdAt"> & { replitId?: string }): Promise<User> => {
+  createUser: async (data: Omit<User, "id" | "createdAt" | "onboardingCompleted"> & { replitId?: string; onboardingCompleted?: boolean }): Promise<User> => {
     const r = await pool.query(
-      "INSERT INTO users (username, email, password, role, full_name, replit_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
-      [data.username, data.email, data.password, data.role, data.fullName, (data as any).replitId ?? null]
+      "INSERT INTO users (username, email, password, role, full_name, replit_id, onboarding_completed) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+      [data.username, data.email, data.password, data.role, data.fullName, (data as any).replitId ?? null, data.onboardingCompleted ?? false]
     );
     return userFromRow(r.rows[0]);
   },
@@ -398,17 +399,20 @@ const storageApi = {
       return withdrawnApplications;
     });
   },
+  completeOnboarding: async (userId: number): Promise<void> => {
+    await pool.query("UPDATE users SET onboarding_completed = true WHERE id = $1", [userId]);
+  },
 
   // Atomically create a user + their profile in a single transaction so a DB
   // failure between the two writes never leaves an orphan user with no profile.
   createUserWithProfile: async (
-    userData: Omit<User, "id" | "createdAt"> & { replitId?: string },
+    userData: Omit<User, "id" | "createdAt" | "onboardingCompleted"> & { replitId?: string; onboardingCompleted?: boolean },
     profileData: Omit<Profile, "id" | "userId">
   ): Promise<{ user: User; profile: Profile }> => {
     return withTransaction(async (client) => {
       const ur = await client.query(
-        "INSERT INTO users (username, email, password, role, full_name, replit_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
-        [userData.username, userData.email, userData.password, userData.role, userData.fullName, (userData as any).replitId ?? null]
+        "INSERT INTO users (username, email, password, role, full_name, replit_id, onboarding_completed) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+        [userData.username, userData.email, userData.password, userData.role, userData.fullName, (userData as any).replitId ?? null, userData.onboardingCompleted ?? false]
       );
       const user = userFromRow(ur.rows[0]);
 

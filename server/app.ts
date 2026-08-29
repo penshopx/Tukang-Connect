@@ -254,7 +254,10 @@ app.get("/api/auth/replit/callback", async (req, res) => {
         if (existing) username = `${username}_${Date.now()}`;
 
         const created = await storage.createUserWithProfile(
-          { username, email: replitEmail, password: "", fullName: replitName, role: "pelanggan", replitId } as any,
+          {
+            username, email: replitEmail, password: "", fullName: replitName,
+            role: "pelanggan", replitId, onboardingCompleted: false,
+          } as any,
           {
             bio: null, location: null, skills: [], category: null, hourlyRate: null,
             isVerified: false, isMandor: false, certifications: [],
@@ -269,7 +272,7 @@ app.get("/api/auth/replit/callback", async (req, res) => {
     }
 
     req.session.userId = user.id;
-    res.redirect(isNew ? "/onboarding" : "/dashboard");
+    res.redirect(isNew || user.onboardingCompleted === false ? "/onboarding" : "/dashboard");
   } catch (err) {
     console.error("[replit-auth] database error for replitId=%s:", replitId, err);
     res.redirect("/login?error=db_unavailable");
@@ -313,7 +316,10 @@ app.post("/api/register", async (req, res) => {
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const { user } = await storage.createUserWithProfile(
-      { username, email, password: hashedPassword, fullName, role: role || "pelanggan" },
+      {
+        username, email, password: hashedPassword, fullName,
+        role: role || "pelanggan", onboardingCompleted: false,
+      },
       {
         bio: null, location: null, skills: [], category: null, hourlyRate: null,
         isVerified: false, isMandor: false, certifications: [], avatarUrl: null,
@@ -353,6 +359,15 @@ app.put("/api/users/me/role", requireAuth, async (req, res) => {
     role,
     ...(withdrawnApplications > 0 ? { withdrawnApplications } : {}),
   });
+});
+
+app.put("/api/users/me/onboarding", requireAuth, async (req, res) => {
+  if (req.body?.completed !== true) {
+    return res.status(400).json({ error: "Onboarding belum selesai." });
+  }
+
+  await storage.completeOnboarding(req.session.userId!);
+  res.json({ success: true, onboardingCompleted: true });
 });
 
 app.get("/api/me", requireAuth, async (req, res) => {

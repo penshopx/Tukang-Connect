@@ -84,6 +84,20 @@ export function useUpdateRole() {
   });
 }
 
+export function useCompleteOnboarding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", "/api/users/me/onboarding", { completed: true });
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      qc.invalidateQueries({ queryKey: ["/api/me"] });
+    },
+  });
+}
+
 export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({

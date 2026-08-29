@@ -8,6 +8,7 @@ export interface User {
   role: UserRole;
   fullName: string;
   createdAt: string;
+  onboardingCompleted: boolean;
   replitId?: string | null;
 }
 

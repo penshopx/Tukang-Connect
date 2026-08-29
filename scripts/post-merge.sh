@@ -13,9 +13,15 @@ await pool.query(`
   CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'pelanggan', full_name TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(), onboarding_completed BOOLEAN NOT NULL DEFAULT false
   );
   ALTER TABLE users ADD COLUMN IF NOT EXISTS replit_id TEXT UNIQUE;
+  -- Existing accounts predate onboarding tracking, so treat them as complete.
+  -- New rows use the false default above (and the explicit INSERT values below).
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN;
+  UPDATE users SET onboarding_completed = true WHERE onboarding_completed IS NULL;
+  ALTER TABLE users ALTER COLUMN onboarding_completed SET DEFAULT false;
+  ALTER TABLE users ALTER COLUMN onboarding_completed SET NOT NULL;
   CREATE TABLE IF NOT EXISTS profiles (
     id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     bio TEXT, location TEXT, skills TEXT[] DEFAULT '{}', category TEXT,

@@ -85,6 +85,7 @@ vi.mock("../storage.js", () => ({
     createUserWithProfile:      vi.fn(),
     updateUserReplitId:         vi.fn(),
     updateUserRole:             vi.fn(),
+    completeOnboarding:         vi.fn(),
     getProfiles:                vi.fn(),
     getProfileByUserId:         vi.fn(),
     createProfile:              vi.fn(),
@@ -148,6 +149,7 @@ const NEW_USER = {
   role: "pelanggan",
   fullName: "Fake Replit User",
   createdAt: "2024-01-01T00:00:00.000Z",
+  onboardingCompleted: false,
   replitId: "replit-sub-fake-abc123",
 };
 
@@ -156,6 +158,7 @@ const EXISTING_USER = {
   id: 55,
   username: "existingreplit",
   role: "tukang",
+  onboardingCompleted: true,
 };
 
 const EMAIL_USER = {
@@ -163,6 +166,7 @@ const EMAIL_USER = {
   id: 77,
   username: "emailonlyuser",
   password: "somepassword",
+  onboardingCompleted: true,
   replitId: null,
 };
 
@@ -214,6 +218,7 @@ describe("GET /api/auth/replit/callback — Replit OAuth callback", () => {
       expect((userArg as any).replitId).toBe("replit-sub-fake-abc123");
       expect((userArg as any).role).toBe("pelanggan");
       expect((userArg as any).email).toBe("fakereplit@example.com");
+      expect((userArg as any).onboardingCompleted).toBe(false);
     });
 
     it("establishes a session — /api/auth/user succeeds after callback", async () => {
@@ -256,6 +261,18 @@ describe("GET /api/auth/replit/callback — Replit OAuth callback", () => {
     it("does not create a new account", async () => {
       await request(app).get("/api/auth/replit/callback");
       expect(storage.createUserWithProfile).not.toHaveBeenCalled();
+    });
+
+    it("redirects an unfinished returning user back to /onboarding", async () => {
+      vi.mocked(storage.getUserByReplitId).mockResolvedValueOnce({
+        ...EXISTING_USER,
+        onboardingCompleted: false,
+      } as any);
+
+      const res = await request(app).get("/api/auth/replit/callback");
+
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe("/onboarding");
     });
 
     it("establishes a session for the existing user", async () => {
@@ -531,5 +548,34 @@ describe("Full post-OAuth onboarding flow: callback → role selection", () => {
     const meRes = await agent.get("/api/auth/user");
     expect(meRes.status).toBe(200);
     expect(meRes.body.role).toBe("tukang");
+  });
+
+  it("marks onboarding complete, then sends the returning user to /dashboard", async () => {
+    const agent = await newUserAfterCallback();
+    vi.mocked(storage.completeOnboarding).mockResolvedValueOnce(undefined);
+
+    const completeRes = await agent
+      .put("/api/users/me/onboarding")
+      .send({ completed: true });
+
+    expect(completeRes.status).toBe(200);
+    expect(completeRes.body).toEqual({ success: true, onboardingCompleted: true });
+    expect(storage.completeOnboarding).toHaveBeenCalledWith(NEW_USER.id);
+
+    vi.mocked(storage.getUserByReplitId).mockResolvedValueOnce({
+      ...NEW_USER,
+      onboardingCompleted: true,
+    } as any);
+    const callbackRes = await agent.get("/api/auth/replit/callback");
+    expect(callbackRes.headers.location).toBe("/dashboard");
+  });
+
+  it("rejects unauthenticated attempts to complete onboarding", async () => {
+    const res = await request(app)
+      .put("/api/users/me/onboarding")
+      .send({ completed: true });
+
+    expect(res.status).toBe(401);
+    expect(storage.completeOnboarding).not.toHaveBeenCalled();
   });
 });

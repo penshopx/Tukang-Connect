@@ -53,7 +53,10 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
       login(
         { email: form.email, password: form.password },
         {
-          onSuccess: () => { toast({ title: "Berhasil masuk!" }); navigate("/dashboard"); },
+          onSuccess: (user) => {
+            toast({ title: "Berhasil masuk!" });
+            navigate(user?.onboardingCompleted === false ? "/onboarding" : "/dashboard");
+          },
           onError: (err) => toast({ title: "Gagal masuk", description: err.message, variant: "destructive" }),
         }
       );
