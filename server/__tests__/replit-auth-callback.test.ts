@@ -476,6 +476,7 @@ describe("Full post-OAuth onboarding flow: callback → role selection", () => {
     const agent = request.agent(app);
     const callbackRes = await agent.get("/api/auth/replit/callback");
     expect(callbackRes.headers.location).toBe("/onboarding");
+    vi.mocked(storage.getUserById).mockResolvedValue({ ...NEW_USER } as any);
     return agent;
   }
 

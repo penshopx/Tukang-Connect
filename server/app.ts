@@ -116,6 +116,14 @@ declare module "express-session" {
   }
 }
 
+declare global {
+  namespace Express {
+    interface Request {
+      authenticatedUser?: User;
+    }
+  }
+}
+
 // ─── Replit OIDC setup ────────────────────────────────────────────────────────
 let oidcClient: any = null;
 
@@ -135,15 +143,43 @@ async function getOidcClient(): Promise<any> {
   return client;
 }
 
-const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
+async function destroyStaleSession(req: express.Request): Promise<void> {
+  await new Promise<void>((resolve) => {
+    req.session.destroy(() => resolve());
+  });
+}
+
+async function authenticateSession(
+  req: express.Request,
+  res: express.Response,
+  missingSessionMessage = "Unauthorized"
+): Promise<User | null> {
+  if (!req.session.userId) {
+    res.status(401).json({ error: missingSessionMessage });
+    return null;
+  }
+
+  const user = await storage.getUserById(req.session.userId);
+  if (!user) {
+    await destroyStaleSession(req);
+    res.status(401).json({ error: missingSessionMessage });
+    return null;
+  }
+
+  req.authenticatedUser = user;
+  return user;
+}
+
+const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const user = await authenticateSession(req, res);
+  if (!user) return;
   next();
 };
 
 const requireAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
-  const user = await storage.getUserById(req.session.userId);
-  if (!user || user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+  const user = await authenticateSession(req, res);
+  if (!user) return;
+  if (user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
   next();
 };
 
@@ -368,14 +404,8 @@ app.post("/api/logout", (req, res) => {
 });
 
 app.get("/api/auth/user", async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
-  const user = await storage.getUserById(req.session.userId);
-  if (!user) {
-    const unauthenticatedResponse = { error: "Not authenticated" };
-    return req.session.destroy(() => {
-      res.status(401).json(unauthenticatedResponse);
-    });
-  }
+  const user = await authenticateSession(req, res, "Not authenticated");
+  if (!user) return;
   const { password: _, ...safeUser } = user;
   res.json(safeUser);
 });
@@ -403,16 +433,14 @@ app.put("/api/users/me/onboarding", requireAuth, async (req, res) => {
 });
 
 app.get("/api/me", requireAuth, async (req, res) => {
-  const user = await storage.getUserById(req.session.userId!);
-  if (!user) return res.status(404).json({ error: "Not found" });
+  const user = req.authenticatedUser!;
   const profile = await storage.getProfileByUserId(user.id);
   const { password: _, ...safeUser } = user;
   res.json({ ...safeUser, hasPassword: Boolean(user.password?.trim()), profile });
 });
 
 app.delete("/api/auth/replit/link", requireAuth, async (req, res) => {
-  const user = await storage.getUserById(req.session.userId!);
-  if (!user) return res.status(404).json({ error: "Not found" });
+  const user = req.authenticatedUser!;
   if (!user.replitId) {
     return res.status(400).json({ error: "Akun Replit belum terhubung." });
   }
@@ -517,8 +545,7 @@ app.get("/api/jobs/:id", async (req, res) => {
 });
 
 app.post("/api/jobs", requireAuth, async (req, res) => {
-  const user = await storage.getUserById(req.session.userId!);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  const user = req.authenticatedUser!;
   const job = await storage.createJob({
     ...req.body,
     clientId: user.id,
@@ -540,8 +567,9 @@ app.put("/api/jobs/:id", requireAuth, async (req, res) => {
   const job = await storage.getJobById(Number(req.params.id));
   if (!job) return res.status(404).json({ error: "Not found" });
   if (job.clientId !== req.session.userId!) {
-    const user = await storage.getUserById(req.session.userId!);
-    if (!user || user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    if (req.authenticatedUser!.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
   }
   const parsedPayload = updateJobSchema.safeParse(req.body);
   if (!parsedPayload.success) {
@@ -605,8 +633,7 @@ app.put("/api/applications/:id", requireAuth, async (req, res) => {
   const job = await storage.getJobById(application.jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
 
-  const user = await storage.getUserById(req.session.userId!);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  const user = req.authenticatedUser!;
 
   const body = req.body && typeof req.body === "object" ? req.body : {};
   const requestedFields = Object.keys(body);
@@ -796,8 +823,8 @@ app.post("/api/contracts/:contractId/reports", requireAuth, async (req, res) => 
 
 // Disputes
 app.get("/api/disputes", requireAuth, async (req, res) => {
-  const user = await storage.getUserById(req.session.userId!);
-  const disputes = user?.role === "admin" ? await storage.getDisputes() : await storage.getDisputes(req.session.userId!);
+  const user = req.authenticatedUser!;
+  const disputes = user.role === "admin" ? await storage.getDisputes() : await storage.getDisputes(user.id);
   res.json(disputes);
 });
 
@@ -918,8 +945,7 @@ app.get("/api/admin/disputes", requireAdmin, async (req, res) => {
 
 // Analytics
 app.get("/api/analytics/summary", requireAuth, async (req, res) => {
-  const user = await storage.getUserById(req.session.userId!);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  const user = req.authenticatedUser!;
 
   if (user.role === "admin") {
     return res.json(await storage.getAnalytics());
@@ -1261,12 +1287,9 @@ app.post("/api/agents/milestones", (req, res) => {
 
 app.get("/api/agents/rank-applications/:jobId", requireAuth, async (req, res) => {
   const jobId = Number(req.params.jobId);
-  const [job, user] = await Promise.all([
-    storage.getJobById(jobId),
-    storage.getUserById(req.session.userId!),
-  ]);
+  const user = req.authenticatedUser!;
+  const job = await storage.getJobById(jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
   if (job.clientId !== user.id && user.role !== "admin") {
     return res.status(403).json({ error: "Hanya pemilik proyek yang dapat melihat ranking lamaran" });
   }
@@ -1282,12 +1305,9 @@ app.get("/api/agents/insights", requireAuth, async (req, res) => {
 
 app.get("/api/agents/brain-project/:jobId", requireAuth, async (req, res) => {
   const jobId = Number(req.params.jobId);
-  const [job, user] = await Promise.all([
-    storage.getJobById(jobId),
-    storage.getUserById(req.session.userId!),
-  ]);
+  const user = req.authenticatedUser!;
+  const job = await storage.getJobById(jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   if (job.clientId !== req.session.userId! && user.role !== "admin") {
     return res.status(403).json({ error: "Hanya pemilik proyek yang dapat mengakses Brain Project" });
@@ -1407,12 +1427,9 @@ app.get("/api/agents/brain-project/:jobId", requireAuth, async (req, res) => {
 
 app.get("/api/agents/brain-contract/:contractId", requireAuth, async (req, res) => {
   const contractId = Number(req.params.contractId);
-  const [contract, user] = await Promise.all([
-    storage.getContractById(contractId),
-    storage.getUserById(req.session.userId!),
-  ]);
+  const user = req.authenticatedUser!;
+  const contract = await storage.getContractById(contractId);
   if (!contract) return res.status(404).json({ error: "Kontrak tidak ditemukan" });
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   if (contract.clientId !== req.session.userId! && contract.workerId !== req.session.userId! && user.role !== "admin") {
     return res.status(403).json({ error: "Anda tidak memiliki akses ke supervisi kontrak ini" });

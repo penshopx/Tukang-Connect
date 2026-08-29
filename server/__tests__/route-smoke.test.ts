@@ -117,6 +117,7 @@ async function authenticatedAgent(user = OWNER) {
 
   expect(login.status).toBe(200);
   expect(login.body).not.toHaveProperty("password");
+  vi.mocked(storage.getUserById).mockResolvedValue(user as any);
   return agent;
 }
 
@@ -183,6 +184,25 @@ describe("Express route smoke tests", () => {
       expect(storage.getContracts).not.toHaveBeenCalled();
     });
 
+    it("destroys a stale session before any protected route handler runs", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
+
+      const staleResponse = await agent.get("/api/contracts");
+
+      expect(staleResponse.status).toBe(401);
+      expect(staleResponse.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getContracts).not.toHaveBeenCalled();
+
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
+      const subsequentResponse = await agent.get("/api/contracts");
+
+      expect(subsequentResponse.status).toBe(401);
+      expect(subsequentResponse.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getUserById).toHaveBeenCalledTimes(1);
+      expect(storage.getContracts).not.toHaveBeenCalled();
+    });
+
     it("lists the signed-in user's contracts with participant summaries", async () => {
       vi.mocked(storage.getContracts).mockResolvedValueOnce([CONTRACT] as any);
       vi.mocked(storage.getUsers).mockResolvedValueOnce([
@@ -222,7 +242,8 @@ describe("Express route smoke tests", () => {
         expect(response.body).toEqual(updatedJob);
         expect(storage.updateJob).toHaveBeenCalledWith(JOB.id, changes);
         expect(storage.updateJob).toHaveBeenCalledOnce();
-        expect(storage.getUserById).not.toHaveBeenCalled();
+        expect(storage.getUserById).toHaveBeenCalledOnce();
+        expect(storage.getUserById).toHaveBeenCalledWith(OWNER.id);
       });
 
       it("forbids another user from updating the project", async () => {
@@ -528,6 +549,17 @@ describe("Express route smoke tests", () => {
   });
 
   describe("admin authorization", () => {
+    it("destroys a stale session before an admin handler runs", async () => {
+      const agent = await authenticatedAgent(ADMIN);
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
+
+      const response = await agent.get("/api/admin/status");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getAnalytics).not.toHaveBeenCalled();
+    });
+
     it("forbids a signed-in non-admin from an admin route", async () => {
       vi.mocked(storage.getUserById).mockResolvedValueOnce(OWNER as any);
 

@@ -166,6 +166,7 @@ async function authenticatedAgent(user = PELANGGAN_USER) {
     .send({ email: user.email, password: TEST_PASSWORD });
 
   expect(loginRes.status).toBe(200); // sanity-check: login succeeded
+  vi.mocked(storage.getUserById).mockResolvedValue(user as any);
   return agent;
 }
 
@@ -448,6 +449,7 @@ describe("Simulated post-Replit-OAuth onboarding flow", () => {
       .post("/api/login")
       .send({ email: PELANGGAN_USER.email, password: TEST_PASSWORD });
     expect(loginRes.status).toBe(200);
+    vi.mocked(storage.getUserById).mockResolvedValue(PELANGGAN_USER as any);
 
     // Step 2: User arrives at /onboarding and picks tukang.
     vi.mocked(storage.updateUserRole).mockResolvedValueOnce(undefined as any);
@@ -485,6 +487,7 @@ describe("Simulated post-Replit-OAuth onboarding flow", () => {
     await agent
       .post("/api/login")
       .send({ email: PELANGGAN_USER.email, password: TEST_PASSWORD });
+    vi.mocked(storage.getUserById).mockResolvedValue(PELANGGAN_USER as any);
 
     vi.mocked(storage.updateUserRole).mockResolvedValueOnce(undefined as any);
     const roleRes = await agent

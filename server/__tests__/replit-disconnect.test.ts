@@ -45,6 +45,7 @@ async function authenticatedAgent() {
     .post("/api/login")
     .send({ email: LINKED_USER.email, password: PASSWORD });
   expect(login.status).toBe(200);
+  vi.mocked(storage.getUserById).mockResolvedValue(LINKED_USER as any);
   return agent;
 }
 

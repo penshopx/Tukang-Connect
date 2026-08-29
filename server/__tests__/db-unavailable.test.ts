@@ -137,6 +137,7 @@ async function authenticatedAgent() {
     .send({ email: FAKE_USER.email, password: FAKE_USER_PASSWORD });
 
   expect(loginRes.status).toBe(200);
+  vi.mocked(storage.getUserById).mockResolvedValue(FAKE_USER as any);
   return agent;
 }
 
