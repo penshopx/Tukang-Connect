@@ -281,6 +281,11 @@ app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await storage.getUserByEmail(email);
+    if (user?.password === "") {
+      return res.status(401).json({
+        error: "Akun ini menggunakan login Replit. Gunakan tombol Masuk dengan Replit.",
+      });
+    }
     if (!user || !user.password) {
       return res.status(401).json({ error: "Email atau password salah" });
     }

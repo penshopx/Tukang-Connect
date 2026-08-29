@@ -134,10 +134,11 @@ describe("POST /api/login — password hashing", () => {
     expect(res.body).toHaveProperty("error");
   });
 
-  it("returns 401 when the stored password is an empty string (Replit-only account)", async () => {
+  it("returns 401 with Replit guidance for a Replit-only account", async () => {
     vi.mocked(storage.getUserByEmail).mockResolvedValueOnce({
       ...BASE_USER,
       password: "",
+      replitId: "replit-sub-only",
     } as any);
 
     const res = await request(app)
@@ -145,6 +146,9 @@ describe("POST /api/login — password hashing", () => {
       .send({ email: BASE_USER.email, password: "" });
 
     expect(res.status).toBe(401);
+    expect(res.body).toEqual({
+      error: "Akun ini menggunakan login Replit. Gunakan tombol Masuk dengan Replit.",
+    });
   });
 
   it("returns 401 when the stored password is null (no local password set)", async () => {
