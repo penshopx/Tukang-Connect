@@ -367,6 +367,55 @@ describe("API routes when database is unreachable", () => {
     });
   });
 
+  describe("GET /api/me", () => {
+    it("clears the stale session before the protected handler can run", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
+
+      const res = await agent.get("/api/me");
+
+      expect(res.status).toBe(401);
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      expect(res.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getProfileByUserId).not.toHaveBeenCalled();
+
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(FAKE_USER as any);
+      const subsequentRes = await agent.get("/api/me");
+
+      expect(subsequentRes.status).toBe(401);
+      expect(subsequentRes.headers["content-type"]).toMatch(/application\/json/);
+      expect(subsequentRes.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getUserById).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects a stale session before checking a nonexistent protected resource", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
+
+      const res = await agent
+        .put("/api/jobs/999999")
+        .send({ title: "Must not be processed" });
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: "Unauthorized" });
+      expect(storage.getJobById).not.toHaveBeenCalled();
+      expect(storage.updateJob).not.toHaveBeenCalled();
+    });
+
+    it("rejects stale-session mutations without writing data", async () => {
+      const agent = await authenticatedAgent();
+      vi.mocked(storage.getUserById).mockResolvedValueOnce(undefined as any);
+
+      const res = await agent
+        .post("/api/contracts")
+        .send({ title: "Must not be created" });
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: "Unauthorized" });
+      expect(storage.createContract).not.toHaveBeenCalled();
+    });
+  });
+
   // ── GET /api/jobs ─────────────────────────────────────────────────────────
   // No try/catch in the route — the async wrapper propagates the error to the
   // global handler which returns a retryable 503 DB_UNAVAILABLE response.
