@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ApiRequestError } from "@/lib/queryClient";
 
 const SERVICE_UNAVAILABLE_MESSAGE = "Layanan sedang tidak tersedia. Silakan tunggu sebentar dan coba lagi.";
+const MIN_PASSWORD_LENGTH = 8;
 
 type AuthError = {
   title: string;
@@ -86,6 +87,17 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
   const { mutate: register, isPending: registering } = useRegister();
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const passwordHasMinimumLength = form.password.length >= MIN_PASSWORD_LENGTH;
+  const passwordIsNotBlank = form.password.trim().length > 0;
+  const passwordIsValid = passwordHasMinimumLength && passwordIsNotBlank;
+  const passwordHint =
+    form.password.length === 0
+      ? `Minimal ${MIN_PASSWORD_LENGTH} karakter.`
+      : !passwordIsNotBlank
+        ? "Password tidak boleh hanya berisi spasi."
+        : !passwordHasMinimumLength
+          ? `Masih kurang ${MIN_PASSWORD_LENGTH - form.password.length} karakter (minimal ${MIN_PASSWORD_LENGTH} karakter).`
+          : "Password memenuhi syarat minimum.";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +118,14 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
         }
       );
     } else {
+      if (!passwordIsValid) {
+        const error = {
+          title: "Password belum memenuhi syarat",
+          description: passwordHint,
+        };
+        setAuthError(error);
+        return;
+      }
       register(form as any, {
         onSuccess: () => {
           toast({ title: "Akun berhasil dibuat!" });
@@ -227,6 +247,9 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                     type={showPass ? "text" : "password"}
                     placeholder="••••••••"
+                    minLength={mode === "register" ? MIN_PASSWORD_LENGTH : undefined}
+                    aria-describedby={mode === "register" ? "register-password-hint" : undefined}
+                    aria-invalid={mode === "register" && form.password.length > 0 && !passwordIsValid}
                     value={form.password}
                     onChange={(e) => update("password", e.target.value)}
                     required
@@ -239,6 +262,15 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
                     {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {mode === "register" && (
+                  <p
+                    id="register-password-hint"
+                    aria-live="polite"
+                    className={`mt-1 text-xs ${passwordIsValid ? "text-emerald-600" : "text-muted-foreground"}`}
+                  >
+                    {passwordHint}
+                  </p>
+                )}
               </div>
 
               {mode === "register" && (
