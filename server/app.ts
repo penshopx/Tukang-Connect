@@ -312,6 +312,9 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/register", async (req, res) => {
   try {
     const { username, email, password, fullName, role } = req.body;
+    if (typeof password !== "string" || !password.trim()) {
+      return res.status(400).json({ error: "Password wajib diisi" });
+    }
     if (await storage.getUserByEmail(email)) {
       return res.status(400).json({ error: "Email sudah terdaftar" });
     }

@@ -234,6 +234,37 @@ describe("POST /api/register — password hashing", () => {
     expect(res.status).toBe(201);
     expect(res.body).not.toHaveProperty("password");
   });
+
+  it("returns 400 and does not create a user when the password is missing", async () => {
+    const res = await request(app)
+      .post("/api/register")
+      .send({
+        username: "missing-password-user",
+        email: "missing-password@example.com",
+        fullName: "Missing Password User",
+        role: "pelanggan",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+    expect(storage.createUserWithProfile).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 and does not create a user when the password is whitespace-only", async () => {
+    const res = await request(app)
+      .post("/api/register")
+      .send({
+        username: "blank-password-user",
+        email: "blank-password@example.com",
+        password: "   \t\n",
+        fullName: "Blank Password User",
+        role: "pelanggan",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+    expect(storage.createUserWithProfile).not.toHaveBeenCalled();
+  });
 });
 
 // ─── Migration regex unit tests ───────────────────────────────────────────────
