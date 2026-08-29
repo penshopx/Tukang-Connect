@@ -17,12 +17,14 @@ export class ApiRequestError extends Error {
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown
+  data?: unknown,
+  signal?: AbortSignal
 ): Promise<Response> {
   const options: RequestInit = {
     method,
     credentials: "include",
     headers: data ? { "Content-Type": "application/json" } : {},
+    signal,
   };
   if (data) {
     options.body = JSON.stringify(data);

@@ -99,12 +99,13 @@ function SearchIcon({ className }: { className?: string }) {
 
 export default function Dashboard() {
   const { data: user } = useUser();
+  const isAuthenticated = !!user;
   const { data: notifications = [] } = useNotifications(user?.id);
-  const { data: contracts = [] } = useContracts();
-  const { data: analytics } = useAnalytics();
+  const { data: contracts = [] } = useContracts(isAuthenticated);
+  const { data: analytics } = useAnalytics(isAuthenticated);
   const { data: myJobs = [] } = useMyJobs(user?.id);
   const { data: allJobs = [] } = useJobs({ status: "open" });
-  const { data: upcomingMilestones = [] } = useDashboardMilestones();
+  const { data: upcomingMilestones = [] } = useDashboardMilestones(isAuthenticated);
   const { data: experts = [] } = useExperts();
 
   const isTukang = user?.role === "tukang";

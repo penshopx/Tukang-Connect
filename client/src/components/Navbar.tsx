@@ -14,13 +14,12 @@ import { useUser, useLogout, useUnreadCount } from "@/hooks/useUser";
 import { getInitials } from "@/lib/utils";
 
 export default function Navbar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [, navigate] = useLocation();
   const { data: user } = useUser();
-  const { mutate: logout } = useLogout();
+  const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const { data: unread } = useUnreadCount(user?.id);
 
   const isTukang = user?.role === "tukang";
@@ -187,6 +186,7 @@ export default function Navbar() {
                 <div className="relative">
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    aria-label={`Buka menu pengguna ${user.fullName}`}
                     className="flex items-center gap-2 p-1 rounded-xl hover:bg-muted transition-colors"
                   >
                     <Avatar className="h-8 w-8 border-2 border-primary/20">
@@ -238,12 +238,13 @@ export default function Navbar() {
                         </Link>
                         <div className="border-t my-1" />
                         <button
-                           onClick={() => {
-                             logout(undefined, {
-                               onSuccess: () => navigate("/"),
-                             });
-                             setUserMenuOpen(false);
-                           }}
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            logout(undefined, {
+                              onSuccess: () => navigate("/login"),
+                            });
+                          }}
+                          disabled={isLoggingOut}
                           className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl hover:bg-red-50 hover:text-destructive w-full transition-colors text-destructive"
                         >
                           <LogOut className="h-4 w-4" /> Keluar

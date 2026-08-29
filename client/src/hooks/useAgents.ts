@@ -22,7 +22,7 @@ export function useAgentRankApplications(jobId: number, enabled = true) {
 export function useAgentInsights(enabled = true) {
   return useQuery({
     queryKey: ["/api/agents/insights"],
-    queryFn: () => apiRequest("GET", "/api/agents/insights"),
+    queryFn: ({ signal }) => apiRequest("GET", "/api/agents/insights", undefined, signal),
     enabled,
     staleTime: 60_000,
     retry: false,

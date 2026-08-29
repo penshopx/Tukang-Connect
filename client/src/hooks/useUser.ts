@@ -4,8 +4,8 @@ import { apiRequest, ApiRequestError } from "@/lib/queryClient";
 export function useUser() {
   return useQuery({
     queryKey: ["/api/auth/user"],
-    queryFn: async () => {
-      const res = await fetch("/api/auth/user", { credentials: "include" });
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/auth/user", { credentials: "include", signal });
       if (res.status === 401) return null;
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -29,8 +29,8 @@ export function useLogin() {
       const res = await apiRequest("POST", "/api/login", data);
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    onSuccess: (user) => {
+      qc.setQueryData(["/api/auth/user"], user);
     },
   });
 }
@@ -48,8 +48,8 @@ export function useRegister() {
       const res = await apiRequest("POST", "/api/register", data);
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    onSuccess: (user) => {
+      qc.setQueryData(["/api/auth/user"], user);
     },
   });
 }
@@ -60,8 +60,12 @@ export function useLogout() {
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
     },
-    onSuccess: () => {
-      qc.clear();
+    onSuccess: async () => {
+      await qc.cancelQueries();
+      qc.setQueryData(["/api/auth/user"], null);
+      qc.removeQueries({
+        predicate: (query) => query.queryKey[0] !== "/api/auth/user",
+      });
     },
   });
 }
@@ -156,8 +160,8 @@ export function useUpdateProfile() {
 export function useNotifications(userId?: number) {
   return useQuery({
     queryKey: ["/api/notifications"],
-    queryFn: async () => {
-      const res = await fetch("/api/notifications", { credentials: "include" });
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/notifications", { credentials: "include", signal });
       if (!res.ok) return [];
       return res.json();
     },
@@ -169,8 +173,8 @@ export function useNotifications(userId?: number) {
 export function useUnreadCount(userId?: number) {
   return useQuery({
     queryKey: ["/api/notifications/unread-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/notifications/unread-count", { credentials: "include" });
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/notifications/unread-count", { credentials: "include", signal });
       if (!res.ok) return { count: 0 };
       return res.json();
     },

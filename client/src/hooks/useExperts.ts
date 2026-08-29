@@ -30,15 +30,16 @@ export function useExpert(userId: number) {
   });
 }
 
-export function useContracts() {
+export function useContracts(enabled = true) {
   return useQuery({
     queryKey: ["/api/contracts"],
-    queryFn: async () => {
-      const res = await fetch("/api/contracts", { credentials: "include" });
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/contracts", { credentials: "include", signal });
       if (res.status === 401) return [];
       if (!res.ok) throw new Error("Failed to fetch contracts");
       return res.json();
     },
+    enabled,
   });
 }
 
@@ -154,14 +155,15 @@ export function useReviews(userId: number) {
   });
 }
 
-export function useAnalytics() {
+export function useAnalytics(enabled = true) {
   return useQuery({
     queryKey: ["/api/analytics/summary"],
-    queryFn: async () => {
-      const res = await fetch("/api/analytics/summary", { credentials: "include" });
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/analytics/summary", { credentials: "include", signal });
       if (!res.ok) return null;
       return res.json();
     },
+    enabled,
   });
 }
 
@@ -217,16 +219,17 @@ export function useCreateReview() {
   });
 }
 
-export function useDashboardMilestones() {
+export function useDashboardMilestones(enabled = true) {
   return useQuery({
     queryKey: ["/api/dashboard/milestones"],
-    queryFn: async () => {
-      const res = await fetch("/api/dashboard/milestones", { credentials: "include" });
+    queryFn: async ({ signal }) => {
+      const res = await fetch("/api/dashboard/milestones", { credentials: "include", signal });
       if (res.status === 401) return [];
       if (!res.ok) return [];
       return res.json();
     },
     refetchInterval: 30000,
+    enabled,
   });
 }
 
