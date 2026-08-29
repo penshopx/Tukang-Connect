@@ -24,11 +24,13 @@ vi.mock("../storage.js", () => ({
     createJob: vi.fn(),
     updateJob: vi.fn(),
     getApplicationsByJob: vi.fn(),
+    getProfiles: vi.fn(),
     getApplicationById: vi.fn(),
     updateApplication: vi.fn(),
     createApplication: vi.fn(),
     createNotification: vi.fn(),
     getContracts: vi.fn(),
+    updateContract: vi.fn(),
     getAnalytics: vi.fn(),
   },
   withTransaction: vi.fn(),
@@ -256,7 +258,8 @@ describe("Express route smoke tests", () => {
     });
 
     it("lists the signed-in user's contracts with participant summaries", async () => {
-      vi.mocked(storage.getContracts).mockResolvedValueOnce([CONTRACT] as any);
+      const contractFromGet = { ...CONTRACT, totalValue: 825000000000000 };
+      vi.mocked(storage.getContracts).mockResolvedValueOnce([contractFromGet] as any);
       vi.mocked(storage.getUsers).mockResolvedValueOnce([
         OWNER,
         { ...OWNER, id: 13, fullName: "Route Worker", role: "tukang" },
@@ -268,12 +271,24 @@ describe("Express route smoke tests", () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual([
         {
-          ...CONTRACT,
+          ...contractFromGet,
           client: { id: OWNER.id, fullName: OWNER.fullName },
           worker: { id: 13, fullName: "Route Worker" },
         },
       ]);
+      expect(response.body[0].totalValue).toEqual(expect.any(Number));
       expect(storage.getContracts).toHaveBeenCalledWith(OWNER.id);
+
+      vi.mocked(storage.updateContract).mockResolvedValueOnce(contractFromGet as any);
+      const updateResponse = await agent
+        .put(`/api/contracts/${contractFromGet.id}`)
+        .send({ totalValue: response.body[0].totalValue });
+
+      expect(updateResponse.status).toBe(200);
+      expect(storage.updateContract).toHaveBeenCalledWith(
+        contractFromGet.id,
+        { totalValue: response.body[0].totalValue },
+      );
     });
 
     describe("job mutations", () => {
@@ -531,6 +546,37 @@ describe("Express route smoke tests", () => {
           pendingApplication.id,
           changes,
           "pending"
+        );
+      });
+
+      it("returns a numeric proposed budget that can be sent to the update endpoint", async () => {
+        const applicationFromGet = {
+          ...withdrawnApplication,
+          proposedBudget: 750000000000000,
+          status: "pending",
+        };
+        vi.mocked(storage.getApplicationsByJob).mockResolvedValueOnce([applicationFromGet] as any);
+        vi.mocked(storage.getUsers).mockResolvedValueOnce([WORKER] as any);
+        vi.mocked(storage.getProfiles).mockResolvedValueOnce([] as any);
+        vi.mocked(storage.getApplicationById).mockResolvedValueOnce(applicationFromGet as any);
+        vi.mocked(storage.getJobById).mockResolvedValueOnce(JOB as any);
+        vi.mocked(storage.updateApplication).mockResolvedValueOnce(applicationFromGet as any);
+
+        const agent = await authenticatedAgent(WORKER);
+        const getResponse = await agent.get(`/api/jobs/${JOB.id}/applications`);
+
+        expect(getResponse.status).toBe(200);
+        expect(getResponse.body[0].proposedBudget).toEqual(expect.any(Number));
+
+        const updateResponse = await agent
+          .put(`/api/applications/${applicationFromGet.id}`)
+          .send({ proposedBudget: getResponse.body[0].proposedBudget });
+
+        expect(updateResponse.status).toBe(200);
+        expect(storage.updateApplication).toHaveBeenCalledWith(
+          applicationFromGet.id,
+          { proposedBudget: getResponse.body[0].proposedBudget },
+          "pending",
         );
       });
 

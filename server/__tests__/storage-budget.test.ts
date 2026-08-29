@@ -24,6 +24,8 @@ vi.mock("pg", () => ({
 import { startupReady, storage } from "../storage.js";
 
 const BIGINT_BUDGET = "900000000000000";
+const BIGINT_PROPOSED_BUDGET = "750000000000000";
+const BIGINT_CONTRACT_VALUE = "825000000000000";
 const JOB_ROW = {
   id: 21,
   title: "Renovasi rumah",
@@ -38,7 +40,33 @@ const JOB_ROW = {
   deadline: new Date("2024-06-01T00:00:00.000Z"),
 };
 
-describe("storage job budget normalization", () => {
+const APPLICATION_ROW = {
+  id: 31,
+  job_id: JOB_ROW.id,
+  applicant_id: 22,
+  message: "Siap mengerjakan proyek ini",
+  proposed_budget: BIGINT_PROPOSED_BUDGET,
+  status: "pending",
+  created_at: new Date("2024-01-03T00:00:00.000Z"),
+};
+
+const CONTRACT_ROW = {
+  id: 41,
+  job_id: JOB_ROW.id,
+  client_id: 11,
+  worker_id: 22,
+  title: "Kontrak renovasi",
+  description: JOB_ROW.description,
+  total_value: BIGINT_CONTRACT_VALUE,
+  status: "active",
+  client_signed: true,
+  worker_signed: false,
+  created_at: new Date("2024-01-04T00:00:00.000Z"),
+  start_date: new Date("2024-01-05T00:00:00.000Z"),
+  end_date: null,
+};
+
+describe("storage monetary value normalization", () => {
   beforeEach(async () => {
     await startupReady;
     vi.clearAllMocks();
@@ -76,5 +104,79 @@ describe("storage job budget normalization", () => {
 
     expect(jobs[0]?.budget).toBe(Number(BIGINT_BUDGET));
     expect(typeof jobs[0]?.budget).toBe("number");
+  });
+
+  it.each([
+    ["getApplicationsByJob", () => storage.getApplicationsByJob(JOB_ROW.id)],
+    ["getApplicationsByUser", () => storage.getApplicationsByUser(APPLICATION_ROW.applicant_id)],
+    ["getApplicationsByApplicant", () => storage.getApplicationsByApplicant(APPLICATION_ROW.applicant_id)],
+    ["getAllApplications", () => storage.getAllApplications()],
+    ["getApplicationById", () => storage.getApplicationById(APPLICATION_ROW.id)],
+    [
+      "createApplication",
+      () =>
+        storage.createApplication({
+          jobId: APPLICATION_ROW.job_id,
+          applicantId: APPLICATION_ROW.applicant_id,
+          message: APPLICATION_ROW.message,
+          proposedBudget: Number(BIGINT_PROPOSED_BUDGET),
+          status: "pending",
+        }),
+    ],
+    [
+      "updateApplication",
+      () =>
+        storage.updateApplication(
+          APPLICATION_ROW.id,
+          { proposedBudget: Number(BIGINT_PROPOSED_BUDGET) },
+        ),
+    ],
+  ])("normalizes BIGINT proposed budgets returned by %s", async (_method, operation) => {
+    poolMock.query.mockResolvedValueOnce({ rows: [APPLICATION_ROW] });
+
+    const result = await operation();
+    const applications = Array.isArray(result) ? result : [result];
+
+    expect(applications[0]?.proposedBudget).toBe(Number(BIGINT_PROPOSED_BUDGET));
+    expect(typeof applications[0]?.proposedBudget).toBe("number");
+  });
+
+  it.each([
+    ["getAllContracts", () => storage.getAllContracts()],
+    ["getContracts", () => storage.getContracts(CONTRACT_ROW.client_id)],
+    ["getContractById", () => storage.getContractById(CONTRACT_ROW.id)],
+    [
+      "createContract",
+      () =>
+        storage.createContract({
+          jobId: CONTRACT_ROW.job_id,
+          clientId: CONTRACT_ROW.client_id,
+          workerId: CONTRACT_ROW.worker_id,
+          title: CONTRACT_ROW.title,
+          description: CONTRACT_ROW.description,
+          totalValue: Number(BIGINT_CONTRACT_VALUE),
+          status: "active",
+          clientSigned: CONTRACT_ROW.client_signed,
+          workerSigned: CONTRACT_ROW.worker_signed,
+          startDate: CONTRACT_ROW.start_date.toISOString(),
+          endDate: CONTRACT_ROW.end_date,
+        }),
+    ],
+    [
+      "updateContract",
+      () =>
+        storage.updateContract(
+          CONTRACT_ROW.id,
+          { totalValue: Number(BIGINT_CONTRACT_VALUE) },
+        ),
+    ],
+  ])("normalizes BIGINT contract values returned by %s", async (_method, operation) => {
+    poolMock.query.mockResolvedValueOnce({ rows: [CONTRACT_ROW] });
+
+    const result = await operation();
+    const contracts = Array.isArray(result) ? result : [result];
+
+    expect(contracts[0]?.totalValue).toBe(Number(BIGINT_CONTRACT_VALUE));
+    expect(typeof contracts[0]?.totalValue).toBe("number");
   });
 });
