@@ -63,14 +63,14 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-border/60 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center min-h-24 py-3">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 font-bold shrink-0">
-            <div className="bg-slate-950 text-sky-300 p-2 rounded-xl shadow-sm">
-              <HardHat className="h-7 w-7" strokeWidth={2.25} />
+          <Link href="/" className="flex items-center gap-4 font-bold shrink-0">
+            <div className="bg-slate-950 p-2.5 rounded-2xl shadow-sm">
+              <HardHat className="h-14 w-14 text-orange-500" strokeWidth={2.25} />
             </div>
-            <span className="hidden sm:block text-primary text-xl lg:text-2xl font-extrabold tracking-[0.04em]">KERJAPROYEK</span>
+            <span className="hidden sm:block text-primary text-3xl lg:text-5xl font-extrabold tracking-[0.04em]">KERJAPROYEK</span>
           </Link>
 
           {/* Desktop Nav */}

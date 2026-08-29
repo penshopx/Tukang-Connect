@@ -7,11 +7,11 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-sky-400 text-slate-950 p-2 rounded-xl shadow-sm">
-                <HardHat className="h-7 w-7" strokeWidth={2.25} />
+            <div className="flex items-center gap-4 mb-5">
+              <div className="bg-slate-950 p-2.5 rounded-2xl shadow-sm">
+                <HardHat className="h-14 w-14 text-orange-500" strokeWidth={2.25} />
               </div>
-              <span className="font-extrabold text-2xl text-white tracking-[0.04em]">KERJAPROYEK</span>
+              <span className="font-extrabold text-5xl text-white tracking-[0.04em]">KERJAPROYEK</span>
             </div>
             <p className="text-sm text-gray-400 max-w-sm">
               Platform marketplace kerja konstruksi Indonesia — menghubungkan owner/boher dengan tukang, 
