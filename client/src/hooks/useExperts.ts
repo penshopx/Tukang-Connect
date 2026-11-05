@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, authenticatedRequest } from "@/lib/queryClient";
+import { useIsAuthenticated } from "@/hooks/useUser";
 
 export function useExperts(filters?: { search?: string; category?: string; verified?: boolean }) {
   const params = new URLSearchParams();
@@ -31,27 +32,26 @@ export function useExpert(userId: number) {
 }
 
 export function useContracts(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/contracts"],
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/contracts", { credentials: "include", signal });
-      if (res.status === 401) return [];
-      if (!res.ok) throw new Error("Failed to fetch contracts");
+      const res = await authenticatedRequest("/api/contracts", signal);
       return res.json();
     },
-    enabled,
+    enabled: isAuthenticated && enabled,
   });
 }
 
 export function useContract(id: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/contracts", id],
-    queryFn: async () => {
-      const res = await fetch(`/api/contracts/${id}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Contract not found");
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest(`/api/contracts/${id}`, signal);
       return res.json();
     },
-    enabled: !!id,
+    enabled: isAuthenticated && !!id,
   });
 }
 
@@ -95,13 +95,14 @@ export function useSignContract() {
 }
 
 export function useDisputes() {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/disputes"],
-    queryFn: async () => {
-      const res = await fetch("/api/disputes", { credentials: "include" });
-      if (!res.ok) return [];
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest("/api/disputes", signal);
       return res.json();
     },
+    enabled: isAuthenticated,
   });
 }
 
@@ -119,14 +120,18 @@ export function useCreateDispute() {
 }
 
 export function usePortfolio(userId?: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/portfolio", userId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const url = userId ? `/api/portfolio/${userId}` : "/api/portfolio";
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) return [];
+      const res = userId
+        ? await apiRequest("GET", url, undefined, signal)
+        : await authenticatedRequest(url, signal);
       return res.json();
     },
+    // An expert's published portfolio is public; the current user's is private.
+    enabled: !!userId || isAuthenticated,
   });
 }
 
@@ -156,36 +161,38 @@ export function useReviews(userId: number) {
 }
 
 export function useAnalytics(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/analytics/summary"],
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/analytics/summary", { credentials: "include", signal });
-      if (!res.ok) return null;
+      const res = await authenticatedRequest("/api/analytics/summary", signal);
       return res.json();
     },
-    enabled,
+    enabled: isAuthenticated && enabled,
   });
 }
 
 export function useAdminData() {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/admin/status"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/status", { credentials: "include" });
-      if (!res.ok) return null;
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest("/api/admin/status", signal);
       return res.json();
     },
+    enabled: isAuthenticated,
   });
 }
 
 export function useAdminProfiles() {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/admin/profiles"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/profiles", { credentials: "include" });
-      if (!res.ok) return [];
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest("/api/admin/profiles", signal);
       return res.json();
     },
+    enabled: isAuthenticated,
   });
 }
 
@@ -220,16 +227,15 @@ export function useCreateReview() {
 }
 
 export function useDashboardMilestones(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/dashboard/milestones"],
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/dashboard/milestones", { credentials: "include", signal });
-      if (res.status === 401) return [];
-      if (!res.ok) return [];
+      const res = await authenticatedRequest("/api/dashboard/milestones", signal);
       return res.json();
     },
     refetchInterval: 30000,
-    enabled,
+    enabled: isAuthenticated && enabled,
   });
 }
 

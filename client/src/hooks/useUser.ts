@@ -1,12 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, ApiRequestError } from "@/lib/queryClient";
+import { apiRequest, authenticatedRequest, ApiRequestError, clearAuthenticatedSession } from "@/lib/queryClient";
 
 export function useUser() {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: async ({ signal }) => {
       const res = await fetch("/api/auth/user", { credentials: "include", signal });
-      if (res.status === 401) return null;
+      if (res.status === 401) {
+        clearAuthenticatedSession(qc, true);
+        return null;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new ApiRequestError(
@@ -15,11 +19,21 @@ export function useUser() {
           body.code,
         );
       }
-      return res.json();
+      const user = await res.json();
+      if (!user && qc.getQueryData(["/api/auth/user"])) {
+        clearAuthenticatedSession(qc, true);
+      }
+      return user;
     },
     retry: false,
     staleTime: 60000,
+    refetchInterval: 60000,
   });
+}
+
+export function useIsAuthenticated() {
+  const { data: user, isSuccess } = useUser();
+  return isSuccess && !!user;
 }
 
 export function useLogin() {
@@ -60,25 +74,22 @@ export function useLogout() {
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
     },
-    onSuccess: async () => {
-      await qc.cancelQueries();
-      qc.setQueryData(["/api/auth/user"], null);
-      qc.removeQueries({
-        predicate: (query) => query.queryKey[0] !== "/api/auth/user",
-      });
+    onSuccess: () => {
+      clearAuthenticatedSession(qc);
     },
   });
 }
 
 export function useProfile() {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/me"],
-    queryFn: async () => {
-      const res = await fetch("/api/me", { credentials: "include" });
-      if (!res.ok) return null;
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest("/api/me", signal);
       return res.json();
     },
     retry: false,
+    enabled: isAuthenticated,
   });
 }
 
@@ -158,27 +169,27 @@ export function useUpdateProfile() {
 }
 
 export function useNotifications(userId?: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/notifications"],
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/notifications", { credentials: "include", signal });
-      if (!res.ok) return [];
+      const res = await authenticatedRequest("/api/notifications", signal);
       return res.json();
     },
     refetchInterval: 30000,
-    enabled: !!userId,
+    enabled: isAuthenticated && !!userId,
   });
 }
 
 export function useUnreadCount(userId?: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/notifications/unread-count"],
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/notifications/unread-count", { credentials: "include", signal });
-      if (!res.ok) return { count: 0 };
+      const res = await authenticatedRequest("/api/notifications/unread-count", signal);
       return res.json();
     },
     refetchInterval: 30000,
-    enabled: !!userId,
+    enabled: isAuthenticated && !!userId,
   });
 }

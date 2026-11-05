@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, authenticatedRequest } from "@/lib/queryClient";
+import { useIsAuthenticated } from "@/hooks/useUser";
 
 export function useAgentMatchWorkers(jobId: number, enabled = true) {
   return useQuery({
@@ -11,19 +12,21 @@ export function useAgentMatchWorkers(jobId: number, enabled = true) {
 }
 
 export function useAgentRankApplications(jobId: number, enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/agents/rank-applications", jobId],
-    queryFn: () => apiRequest("GET", `/api/agents/rank-applications/${jobId}`),
-    enabled: enabled && !!jobId,
+    queryFn: ({ signal }) => authenticatedRequest(`/api/agents/rank-applications/${jobId}`, signal),
+    enabled: isAuthenticated && enabled && !!jobId,
     staleTime: 30_000,
   });
 }
 
 export function useAgentInsights(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/agents/insights"],
-    queryFn: ({ signal }) => apiRequest("GET", "/api/agents/insights", undefined, signal),
-    enabled,
+    queryFn: ({ signal }) => authenticatedRequest("/api/agents/insights", signal),
+    enabled: isAuthenticated && enabled,
     staleTime: 60_000,
     retry: false,
   });

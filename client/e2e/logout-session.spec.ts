@@ -9,6 +9,19 @@ const AUTHENTICATED_USER = {
 };
 
 test.describe("Sesi dashboard", () => {
+  test.beforeEach(async ({ page }) => {
+    // These tests simulate a session rather than signing into the backend.
+    // Keep private dashboard requests in the same simulated session: a real
+    // backend 401 must correctly end the mocked session now.
+    await page.route("**/api/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      const json = path === "/api/health" ? { status: "ok" }
+        : path === "/api/notifications/unread-count" ? { count: 0 }
+        : path === "/api/analytics/summary" ? {} : [];
+      await route.fulfill({ json });
+    });
+  });
+
   test("mengembalikan pengguna ke halaman login setelah logout tanpa memuat ulang dashboard", async ({ page }) => {
     let authenticated = true;
 

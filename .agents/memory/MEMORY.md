@@ -8,3 +8,4 @@
 - [Money invariant audits](money-invariant-audits.md) — audit every persisted and derived monetary path, including direct SQL writes and secondary calculators.
 - [Session-pruning alert delivery](session-pruning-alert-delivery.md) — pair health monitoring with a secret-backed webhook and resolve by matching incident ID.
 - [Cancelable query requests](cancelable-query-requests.md) — cancelQueries stops network I/O only when query functions forward TanStack Query's AbortSignal.
+- [Session-expiry browser tests](session-expiry-browser-tests.md) — distinguish simulated server expiry from client detection; StrictMode may abort and repeat initial requests.

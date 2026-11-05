@@ -11,17 +11,18 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import { compareMoney, formatCurrency, formatDate, getInitials, multiplyMoney } from "@/lib/utils";
-import { useUser } from "@/hooks/useUser";
+import { useUser, useIsAuthenticated } from "@/hooks/useUser";
+import { authenticatedRequest } from "@/lib/queryClient";
 
 function useBrainProject(jobId: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/agents/brain-project", jobId],
-    queryFn: async () => {
-      const res = await fetch(`/api/agents/brain-project/${jobId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Gagal mengambil analisis");
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest(`/api/agents/brain-project/${jobId}`, signal);
       return res.json();
     },
-    enabled: !!jobId,
+    enabled: isAuthenticated && !!jobId,
     staleTime: 60_000,
   });
 }

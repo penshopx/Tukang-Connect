@@ -1,6 +1,6 @@
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { authenticatedRequest } from "@/lib/queryClient";
 import { useUser } from "@/hooks/useUser";
 import { addMoney, formatCurrency, formatDate, subtractMoney } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -107,7 +107,7 @@ export default function BrainContractPage() {
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["/api/agents/brain-contract", contractId],
-    queryFn: () => apiRequest("GET", `/api/agents/brain-contract/${contractId}`).then((r) => r.json()),
+    queryFn: ({ signal }) => authenticatedRequest(`/api/agents/brain-contract/${contractId}`, signal).then((r) => r.json()),
     enabled: !!contractId && !!user,
     staleTime: 60_000,
   });

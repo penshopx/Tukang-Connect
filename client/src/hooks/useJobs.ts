@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, authenticatedRequest } from "@/lib/queryClient";
+import { useIsAuthenticated } from "@/hooks/useUser";
 
 export function useJobs(filters?: { category?: string; status?: string; search?: string }) {
   const params = new URLSearchParams();
@@ -31,14 +32,14 @@ export function useJob(id: number) {
 }
 
 export function useMyJobs(clientId?: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/jobs", "mine", clientId],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs?clientId=${clientId}`, { credentials: "include" });
-      if (!res.ok) return [];
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest(`/api/jobs?clientId=${clientId}`, signal);
       return res.json();
     },
-    enabled: !!clientId,
+    enabled: isAuthenticated && !!clientId,
   });
 }
 
@@ -69,14 +70,14 @@ export function useUpdateJob() {
 }
 
 export function useJobApplications(jobId: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/jobs/applications", jobId],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs/${jobId}/applications`, { credentials: "include" });
-      if (!res.ok) return [];
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest(`/api/jobs/${jobId}/applications`, signal);
       return res.json();
     },
-    enabled: !!jobId,
+    enabled: isAuthenticated && !!jobId,
   });
 }
 
@@ -105,15 +106,15 @@ export function useApplyJob() {
 }
 
 export function useJobMessages(jobId: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/jobs/messages", jobId],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs/${jobId}/messages`, { credentials: "include" });
-      if (!res.ok) return [];
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest(`/api/jobs/${jobId}/messages`, signal);
       return res.json();
     },
     refetchInterval: 5000,
-    enabled: !!jobId,
+    enabled: isAuthenticated && !!jobId,
   });
 }
 
@@ -148,13 +149,13 @@ export function useAcceptApplication() {
 }
 
 export function useWorkerApplications(userId?: number) {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: ["/api/applications/worker", userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs?applicantId=${userId}`, { credentials: "include" });
-      if (!res.ok) return [];
+    queryFn: async ({ signal }) => {
+      const res = await authenticatedRequest(`/api/jobs?applicantId=${userId}`, signal);
       return res.json();
     },
-    enabled: !!userId,
+    enabled: isAuthenticated && !!userId,
   });
 }

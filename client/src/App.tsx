@@ -49,7 +49,7 @@ function RouteLoading() {
 
 function ProtectedPage({ children }: { children: React.ReactNode }) {
   const [, navigate] = useLocation();
-  const { data: user, isLoading, isError, error, refetch } = useUser();
+  const { data: user, isLoading, isError, refetch } = useUser();
 
   useEffect(() => {
     if (!isLoading && !isError && !user) {
@@ -104,7 +104,7 @@ export default function App() {
             <Route path="/" component={HomePage} />
             <Route path="/login" component={() => <AuthPage mode="login" />} />
             <Route path="/register" component={() => <AuthPage mode="register" />} />
-            <Route path="/onboarding" component={OnboardingPage} />
+            <Route path="/onboarding">{() => <ProtectedPage><OnboardingPage /></ProtectedPage>}</Route>
             <Route
               path="/dashboard"
               component={() => (
@@ -113,22 +113,22 @@ export default function App() {
                 </ProtectedPage>
               )}
             />
-            <Route path="/jobs/create" component={JobCreate} />
-            <Route path="/jobs/:id/brain" component={BrainProject} />
+            <Route path="/jobs/create">{() => <ProtectedPage><JobCreate /></ProtectedPage>}</Route>
+            <Route path="/jobs/:id/brain">{() => <ProtectedPage><BrainProject /></ProtectedPage>}</Route>
             <Route path="/jobs/:id" component={JobDetail} />
             <Route path="/jobs" component={JobsPage} />
-            <Route path="/my-jobs" component={MyJobs} />
+            <Route path="/my-jobs">{() => <ProtectedPage><MyJobs /></ProtectedPage>}</Route>
             <Route path="/experts/:userId" component={ExpertDetail} />
             <Route path="/experts" component={ExpertsPage} />
-            <Route path="/contracts/:id/brain" component={BrainContract} />
-            <Route path="/contracts/:id" component={ContractDetail} />
-            <Route path="/contracts" component={ContractsPage} />
-            <Route path="/disputes" component={DisputesPage} />
-            <Route path="/profile/edit" component={ProfileEdit} />
-            <Route path="/portfolio" component={Portfolio} />
+            <Route path="/contracts/:id/brain">{() => <ProtectedPage><BrainContract /></ProtectedPage>}</Route>
+            <Route path="/contracts/:id">{() => <ProtectedPage><ContractDetail /></ProtectedPage>}</Route>
+            <Route path="/contracts">{() => <ProtectedPage><ContractsPage /></ProtectedPage>}</Route>
+            <Route path="/disputes">{() => <ProtectedPage><DisputesPage /></ProtectedPage>}</Route>
+            <Route path="/profile/edit">{() => <ProtectedPage><ProfileEdit /></ProtectedPage>}</Route>
+            <Route path="/portfolio">{() => <ProtectedPage><Portfolio /></ProtectedPage>}</Route>
             <Route path="/cost-estimator" component={CostEstimator} />
             <Route path="/chatbot" component={Chatbot} />
-            <Route path="/admin" component={AdminPage} />
+            <Route path="/admin">{() => <ProtectedPage><AdminPage /></ProtectedPage>}</Route>
             <Route path="/study-materials" component={StudyMaterials} />
             <Route path="/competency-test" component={CompetencyTest} />
             <Route path="/job-board" component={JobBoard} />
