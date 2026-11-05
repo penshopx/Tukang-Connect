@@ -706,15 +706,22 @@ const storageApi = {
     const r = await pool.query("SELECT * FROM milestones WHERE id = $1", [id]);
     return r.rows[0] ? milestoneFromRow(r.rows[0]) : undefined;
   },
-  createMilestone: async (data: Omit<Milestone, "id">): Promise<Milestone> => {
-    const r = await pool.query(
+  createMilestone: async (data: Omit<Milestone, "id">): Promise<Milestone | null> => withTransaction(async (client) => {
+    // Serialize against completion on the parent, even when there are no
+    // milestones yet. Re-read status after acquiring the lock.
+    const contract = await client.query(
+      "SELECT status FROM contracts WHERE id = $1 FOR UPDATE",
+      [data.contractId],
+    );
+    if (contract.rows[0]?.status !== "active") return null;
+    const r = await client.query(
       `INSERT INTO milestones (contract_id, title, description, amount, status, due_date, completed_at, notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
        [data.contractId, data.title, data.description, canonicalMoney(data.amount), data.status,
        data.dueDate, data.completedAt, data.notes]
     );
     return milestoneFromRow(r.rows[0]);
-  },
+  }),
   updateMilestone: async (
     id: number,
     data: Partial<Milestone>,

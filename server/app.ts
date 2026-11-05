@@ -1119,6 +1119,7 @@ app.post("/api/contracts/:contractId/milestones", requireAuth, async (req, res) 
     status: "in_progress",
     completedAt: null,
   });
+  if (!milestone) return res.status(409).json({ error: "Kontrak tidak aktif" });
   res.status(201).json(milestone);
 });
 
@@ -1618,20 +1619,27 @@ app.post("/api/contracts/:id/complete", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "Hanya klien yang dapat menyelesaikan kontrak" });
   }
 
-  const milestones = await storage.getMilestonesByContract(contractId);
-  const incompleteMilestones = milestones.filter((m) => m.status !== "approved");
-  if (incompleteMilestones.length > 0) {
-    const blockedStatuses = [...new Set(incompleteMilestones.map((m) => m.status))].join(", ");
-    return res.status(409).json({
-      error: `Kontrak belum dapat diselesaikan: ${incompleteMilestones.length} milestone belum berstatus approved (${blockedStatuses}). Setujui semua milestone terlebih dahulu.`,
-    });
-  }
-
-  // Core state updates are atomic. The contract UPDATE is guarded with
-  // WHERE status = 'active' so a second concurrent completion request finds 0
-  // rows and gets a 409 rather than double-incrementing completed_projects.
-  // The counter uses SQL arithmetic to avoid a read-modify-write race.
+  // Lock the same parent row as createMilestone before checking children.
+  // At READ COMMITTED the following query sees inserts committed by a creator
+  // we waited for, and no new creator can pass until this transaction ends.
   const updated = await withTransaction(async (client) => {
+    const locked = await client.query(
+      "SELECT status FROM contracts WHERE id = $1 FOR UPDATE",
+      [contractId],
+    );
+    if (locked.rows[0]?.status !== "active") {
+      return { error: "Kontrak tidak aktif" };
+    }
+    const milestones = await client.query(
+      "SELECT status FROM milestones WHERE contract_id = $1 AND status IS DISTINCT FROM 'approved'",
+      [contractId],
+    );
+    if (milestones.rows.length > 0) {
+      const blockedStatuses = [...new Set(milestones.rows.map((m) => m.status))].join(", ");
+      return {
+        error: `Kontrak belum dapat diselesaikan: ${milestones.rows.length} milestone belum berstatus approved (${blockedStatuses}). Setujui semua milestone terlebih dahulu.`,
+      };
+    }
     const cr = await client.query(
       "UPDATE contracts SET status = 'completed', end_date = $1 WHERE id = $2 AND status = 'active' RETURNING id",
       [new Date().toISOString(), contractId]
@@ -1649,10 +1657,10 @@ app.post("/api/contracts/:id/complete", requireAuth, async (req, res) => {
       "UPDATE profiles SET completed_projects = completed_projects + 1 WHERE user_id = $1",
       [contract.workerId]
     );
-    return true;
+    return { error: null };
   });
 
-  if (!updated) return; // transaction threw and error handler responded
+  if (updated.error) return res.status(409).json({ error: updated.error });
 
   const [job, clientUser, workerUser] = await Promise.all([
     storage.getJobById(contract.jobId),

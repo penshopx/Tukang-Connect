@@ -625,9 +625,12 @@ describe("Express route smoke tests", () => {
         "blocks contract completion when a milestone is %s",
         async (status) => {
           vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
-          vi.mocked(storage.getMilestonesByContract).mockResolvedValueOnce([
-            { ...MILESTONE, status },
-          ] as any);
+          const transactionClient = {
+            query: vi.fn()
+              .mockResolvedValueOnce({ rows: [{ status: "active" }] })
+              .mockResolvedValueOnce({ rows: [{ status }] }),
+          };
+          vi.mocked(withTransaction).mockImplementation(async (callback: any) => callback(transactionClient));
 
           const agent = await authenticatedAgent(OWNER);
           const response = await agent.post(`/api/contracts/${CONTRACT.id}/complete`);
@@ -635,19 +638,18 @@ describe("Express route smoke tests", () => {
           expect(response.status).toBe(409);
           expect(response.body.error).toContain("Kontrak belum dapat diselesaikan");
           expect(response.body.error).toContain(status);
-          expect(withTransaction).not.toHaveBeenCalled();
+          expect(transactionClient.query).toHaveBeenCalledTimes(2);
+          expect(storage.getMilestonesByContract).not.toHaveBeenCalled();
           expect(storage.createNotification).not.toHaveBeenCalled();
         },
       );
 
       it("completes a contract only when every milestone is approved", async () => {
         vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
-        vi.mocked(storage.getMilestonesByContract).mockResolvedValueOnce([
-          { ...MILESTONE, status: "approved" },
-          { ...MILESTONE, id: MILESTONE.id + 1, status: "approved" },
-        ] as any);
         const transactionClient = {
           query: vi.fn()
+            .mockResolvedValueOnce({ rows: [{ status: "active" }] })
+            .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: CONTRACT.id }] })
             .mockResolvedValue({ rowCount: 1, rows: [] }),
         };
@@ -741,6 +743,17 @@ describe("Express route smoke tests", () => {
         expect(response.status).toBe(403);
         expect(response.body).toEqual({ error: "Forbidden" });
         expect(storage.createMilestone).not.toHaveBeenCalled();
+      });
+
+      it("returns a conflict if the contract becomes inactive after authorization", async () => {
+        vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        vi.mocked(storage.createMilestone).mockResolvedValueOnce(null);
+        const agent = await authenticatedAgent(OWNER);
+        const response = await agent.post(`/api/contracts/${CONTRACT.id}/milestones`).send({
+          title: MILESTONE.title, description: MILESTONE.description, amount: MILESTONE.amount,
+        });
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "Kontrak tidak aktif" });
       });
 
       it("allows the worker to submit a milestone but forbids an unrelated user", async () => {

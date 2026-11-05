@@ -291,7 +291,10 @@ describe("storage monetary value normalization", () => {
       completed_at: null,
       notes: null,
     };
-    poolMock.query.mockResolvedValueOnce({ rows: [row] });
+    clientMock.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [{ status: "active" }] })
+      .mockResolvedValueOnce({ rows: [row] });
 
     const milestone = await storage.createMilestone({
       contractId: CONTRACT_ROW.id,
@@ -304,8 +307,8 @@ describe("storage monetary value normalization", () => {
       notes: null,
     });
 
-    expect(milestone.amount).toBe(BIGINT_MAX);
-    expect(poolMock.query).toHaveBeenCalledWith(
+    expect(milestone?.amount).toBe(BIGINT_MAX);
+    expect(clientMock.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO milestones"),
       expect.arrayContaining([BIGINT_MAX]),
     );
