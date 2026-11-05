@@ -9,3 +9,4 @@
 - [Session-pruning alert delivery](session-pruning-alert-delivery.md) — pair health monitoring with a secret-backed webhook and resolve by matching incident ID.
 - [Cancelable query requests](cancelable-query-requests.md) — cancelQueries stops network I/O only when query functions forward TanStack Query's AbortSignal.
 - [Session-expiry browser tests](session-expiry-browser-tests.md) — distinguish simulated server expiry from client detection; StrictMode may abort and repeat initial requests.
+- [Contract notification durability](contract-notification-durability.md) — completion success must survive delivery failures; queue work atomically and avoid post-commit recipient reads.

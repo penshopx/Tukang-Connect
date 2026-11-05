@@ -68,6 +68,13 @@ await pool.query(`
     title TEXT, message TEXT, type TEXT DEFAULT 'info', is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW(), link TEXT
   );
+  CREATE TABLE IF NOT EXISTS contract_notification_outbox (
+    contract_id INTEGER PRIMARY KEY REFERENCES contracts(id) ON DELETE CASCADE,
+    payload JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs(id),
     sender_id INTEGER REFERENCES users(id), content TEXT,

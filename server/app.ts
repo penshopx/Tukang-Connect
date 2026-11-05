@@ -10,6 +10,7 @@ import { Issuer, generators } from "openid-client";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { storage, withTransaction, pool, contractFromRow } from "./storage.js";
+import { enqueueContractNotifications, deliverContractNotifications } from "./contractNotifications.js";
 import { MatchingAgent, PricingAgent, MilestoneAgent, ApplicationRankingAgent, AgentOrchestrator, BrainContractOrchestrator } from "./agents.js";
 import { orchestrateAnswer, SEEDED_QUESTIONS } from "./constructionQA.js";
 import {
@@ -1657,38 +1658,19 @@ app.post("/api/contracts/:id/complete", requireAuth, async (req, res) => {
       "UPDATE profiles SET completed_projects = completed_projects + 1 WHERE user_id = $1",
       [contract.workerId]
     );
-    return { error: null };
+    const workerName = await enqueueContractNotifications(client, contract);
+    return { error: null, workerName };
   });
 
   if (updated.error) return res.status(409).json({ error: updated.error });
 
-  const [job, clientUser, workerUser] = await Promise.all([
-    storage.getJobById(contract.jobId),
-    storage.getUserById(contract.clientId),
-    storage.getUserById(contract.workerId),
-  ]);
-  const jobTitle = job?.title || "Proyek";
+  // Completion has committed. Delivery failures must not turn success into an
+  // API error: the durable event remains available to the background retry loop.
+  await deliverContractNotifications(contractId).catch((error) => {
+    console.error("[contract-notifications] Immediate delivery deferred:", error);
+  });
 
-  await Promise.all([
-    storage.createNotification({
-      userId: contract.workerId,
-      title: "Proyek Selesai! 🎉",
-      message: `${clientUser?.fullName || "Klien"} telah menyelesaikan kontrak "${jobTitle}". Profil Anda diperbarui.`,
-      type: "success",
-      isRead: false,
-      link: `/contracts/${contractId}`,
-    }),
-    storage.createNotification({
-      userId: contract.clientId,
-      title: "Berikan Ulasan",
-      message: `Proyek "${jobTitle}" selesai! Berikan ulasan untuk ${workerUser?.fullName || "tukang"} untuk membantu komunitas.`,
-      type: "info",
-      isRead: false,
-      link: `/experts/${contract.workerId}`,
-    }),
-  ]);
-
-  res.json({ success: true, contractId, workerName: workerUser?.fullName, workerId: contract.workerId });
+  res.json({ success: true, contractId, workerName: updated.workerName, workerId: contract.workerId });
 });
 
 // ─── Dashboard: Upcoming Milestones Lintas Kontrak ───────────────────────────

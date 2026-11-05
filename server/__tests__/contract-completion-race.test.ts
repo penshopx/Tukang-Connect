@@ -2,7 +2,7 @@
  * Real PostgreSQL + HTTP regression tests. Each run uses a private schema;
  * no application tables or existing user data are modified.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import type pg from "pg";
 import type { Express } from "express";
@@ -32,6 +32,7 @@ let adminPool: pg.Pool;
 let database: typeof import("../storage.js");
 let app: Express;
 let agent: ReturnType<typeof request.agent>;
+let delivery: typeof import("../contractNotifications.js");
 
 const milestonePayload = {
   title: "Pekerjaan tambahan",
@@ -94,6 +95,7 @@ beforeAll(async () => {
   `);
   database = await import("../storage.js");
   await database.startupReady;
+  delivery = await import("../contractNotifications.js");
   ({ app } = await import("../app.js"));
 });
 
@@ -122,6 +124,110 @@ afterAll(async () => {
     await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await adminPool.end();
   }
+});
+
+afterEach(async () => {
+  await database.pool.query(`
+    DROP TRIGGER IF EXISTS fail_delivery ON notifications;
+    DROP TRIGGER IF EXISTS fail_enqueue ON contract_notification_outbox;
+    DROP FUNCTION IF EXISTS fail_notification_write();
+  `);
+});
+
+async function failNotificationWrite(table: "notifications" | "contract_notification_outbox") {
+  await database.pool.query(`
+    CREATE FUNCTION fail_notification_write() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      RAISE EXCEPTION 'Simulated temporary notification failure';
+    END;
+    $$;
+    CREATE TRIGGER ${table === "notifications" ? "fail_delivery" : "fail_enqueue"}
+    BEFORE INSERT ON ${table}
+    FOR EACH ROW ${table === "notifications" ? "WHEN (NEW.user_id = 11)" : ""}
+    EXECUTE FUNCTION fail_notification_write();
+  `);
+}
+
+async function completeWithDeferredNotifications() {
+  // The second insert fails, after the worker notification has been written.
+  await failNotificationWrite("notifications");
+  const response = await agent.post("/api/contracts/31/complete");
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({
+    success: true, contractId: 31, workerId: 13, workerName: "Race Worker",
+  });
+  expect((await database.pool.query("SELECT * FROM notifications")).rowCount).toBe(0);
+  const pending = await database.pool.query("SELECT * FROM contract_notification_outbox");
+  expect(pending.rowCount).toBe(1);
+  expect(pending.rows[0].payload).toHaveLength(2);
+  expect(pending.rows[0].attempts).toBe(1);
+  await database.pool.query("DROP TRIGGER fail_delivery ON notifications");
+}
+
+describe("durable contract completion notifications", () => {
+  it("rolls back completion and statistics if durable enqueue fails, then allows retry", async () => {
+    await failNotificationWrite("contract_notification_outbox");
+    expect((await agent.post("/api/contracts/31/complete")).status).toBe(500);
+    expect((await database.storage.getContractById(31))?.status).toBe("active");
+    expect((await database.pool.query("SELECT status FROM jobs WHERE id = 21")).rows[0].status).toBe("in_progress");
+    expect((await database.pool.query("SELECT completed_projects FROM profiles")).rows[0].completed_projects).toBe(0);
+    expect((await database.pool.query("SELECT * FROM contract_notification_outbox")).rowCount).toBe(0);
+    expect((await database.pool.query("SELECT * FROM notifications")).rowCount).toBe(0);
+    await database.pool.query("DROP TRIGGER fail_enqueue ON contract_notification_outbox");
+    expect((await agent.post("/api/contracts/31/complete")).status).toBe(200);
+    expect((await database.pool.query("SELECT completed_projects FROM profiles")).rows[0].completed_projects).toBe(1);
+    expect((await database.pool.query("SELECT * FROM notifications")).rowCount).toBe(2);
+  });
+
+  it("recovers a post-commit failure without duplicate notifications or statistics", async () => {
+    await completeWithDeferredNotifications();
+    expect((await database.storage.getContractById(31))?.status).toBe("completed");
+    expect((await database.pool.query("SELECT status FROM jobs WHERE id = 21")).rows[0].status).toBe("completed");
+    expect((await agent.post("/api/contracts/31/complete")).status).toBe(409);
+    // Backoff prevents immediate repeated attempts.
+    await delivery.deliverContractNotifications();
+    expect((await database.pool.query("SELECT * FROM notifications")).rowCount).toBe(0);
+    await database.pool.query("UPDATE contract_notification_outbox SET next_attempt_at = now()");
+    await delivery.deliverContractNotifications();
+    await delivery.deliverContractNotifications();
+    const notifications = await database.pool.query("SELECT * FROM notifications ORDER BY user_id");
+    expect(notifications.rows).toMatchObject([
+      { user_id: 11, title: "Berikan Ulasan", link: "/experts/13", is_read: false },
+      { user_id: 13, title: "Proyek Selesai! 🎉", link: "/contracts/31", is_read: false },
+    ]);
+    expect((await database.pool.query("SELECT * FROM contract_notification_outbox")).rowCount).toBe(0);
+    expect((await database.pool.query("SELECT completed_projects FROM profiles")).rows[0].completed_projects).toBe(1);
+  });
+
+  it("delivers once when several retry workers run concurrently", async () => {
+    await completeWithDeferredNotifications();
+    await database.pool.query("UPDATE contract_notification_outbox SET next_attempt_at = now()");
+    await Promise.all(Array.from({ length: 4 }, () => delivery.deliverContractNotifications()));
+    expect((await database.pool.query("SELECT * FROM notifications")).rowCount).toBe(2);
+    expect((await database.pool.query("SELECT * FROM contract_notification_outbox")).rowCount).toBe(0);
+    expect((await database.pool.query("SELECT completed_projects FROM profiles")).rows[0].completed_projects).toBe(1);
+  });
+
+  it("recovers persisted events on startup without rereading users or jobs", async () => {
+    await completeWithDeferredNotifications();
+    await database.pool.query(`
+      UPDATE contract_notification_outbox SET next_attempt_at = now();
+      UPDATE users SET full_name = 'Changed name';
+      UPDATE jobs SET title = 'Changed title';
+    `);
+    const stop = delivery.startContractNotificationDelivery();
+    try {
+      await vi.waitFor(async () => {
+        expect((await database.pool.query("SELECT * FROM contract_notification_outbox")).rowCount).toBe(0);
+      });
+      const notifications = await database.pool.query("SELECT message FROM notifications ORDER BY user_id");
+      expect(notifications.rows[0].message).toContain("Race Worker");
+      expect(notifications.rows[1].message).toContain("Race Client");
+      expect(notifications.rows.every((row) => row.message.includes("Race project"))).toBe(true);
+    } finally {
+      stop();
+    }
+  });
 });
 
 describe("milestone creation racing contract completion", () => {

@@ -646,6 +646,8 @@ describe("Express route smoke tests", () => {
 
       it("completes a contract only when every milestone is approved", async () => {
         vi.mocked(storage.getContractById).mockResolvedValueOnce(CONTRACT as any);
+        // Delivery itself is covered by real PostgreSQL regression tests.
+        vi.mocked(pool.query).mockResolvedValueOnce({ rows: [] } as any);
         const transactionClient = {
           query: vi.fn()
             .mockResolvedValueOnce({ rows: [{ status: "active" }] })
@@ -664,7 +666,15 @@ describe("Express route smoke tests", () => {
           expect.stringContaining("UPDATE contracts SET status = 'completed'"),
           expect.any(Array),
         );
-        expect(storage.createNotification).toHaveBeenCalledTimes(2);
+        const enqueue = transactionClient.query.mock.calls.find(([sql]) =>
+          sql.includes("INSERT INTO contract_notification_outbox"),
+        );
+        expect(enqueue).toBeDefined();
+        expect(enqueue![1][0]).toBe(CONTRACT.id);
+        expect(JSON.parse(enqueue![1][1])).toMatchObject([
+          { userId: WORKER.id, title: "Proyek Selesai! 🎉" },
+          { userId: OWNER.id, title: "Berikan Ulasan" },
+        ]);
       });
 
       it.each([

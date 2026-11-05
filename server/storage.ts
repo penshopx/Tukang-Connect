@@ -874,8 +874,11 @@ const storageApi = {
     );
     return r.rows[0].cnt;
   },
-  createNotification: async (data: Omit<Notification, "id" | "createdAt">): Promise<Notification> => {
-    const r = await pool.query(
+  createNotification: async (
+    data: Omit<Notification, "id" | "createdAt">,
+    client?: pg.PoolClient,
+  ): Promise<Notification> => {
+    const r = await (client ?? pool).query(
       `INSERT INTO notifications (user_id, title, message, type, is_read, link)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [data.userId, data.title, data.message, data.type, data.isRead, data.link]
@@ -989,6 +992,17 @@ async function migratePasswordsToHash() {
 // accepting requests, ensuring no user is served during an active migration.
 export const startupReady: Promise<void> = seedDatabase()
   .then(() => migratePasswordsToHash())
+  .then(async () => {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS contract_notification_outbox (
+        contract_id integer PRIMARY KEY REFERENCES contracts(id) ON DELETE CASCADE,
+        payload jsonb NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        attempts integer NOT NULL DEFAULT 0,
+        next_attempt_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+  })
   .catch((err) => {
     console.error("[storage] Startup seed/migration error:", err);
     // Don't re-throw — a seed/migration failure should not crash the process.
