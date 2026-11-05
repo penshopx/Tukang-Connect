@@ -131,7 +131,109 @@ afterEach(async () => {
     DROP TRIGGER IF EXISTS fail_delivery ON notifications;
     DROP TRIGGER IF EXISTS fail_enqueue ON contract_notification_outbox;
     DROP FUNCTION IF EXISTS fail_notification_write();
+    DROP TRIGGER IF EXISTS fail_completion_update ON jobs;
+    DROP TRIGGER IF EXISTS fail_completion_update ON profiles;
+    DROP FUNCTION IF EXISTS fail_completion_update();
   `);
+});
+
+async function completionSnapshot() {
+  const contract = await database.pool.query("SELECT * FROM contracts WHERE id = 31");
+  const job = await database.pool.query("SELECT * FROM jobs WHERE id = 21");
+  const profile = await database.pool.query("SELECT * FROM profiles WHERE user_id = 13");
+  const notifications = await database.pool.query("SELECT * FROM notifications ORDER BY id");
+  const outbox = await database.pool.query("SELECT * FROM contract_notification_outbox ORDER BY contract_id");
+  return {
+    contract: contract.rows[0],
+    job: job.rows[0],
+    profile: profile.rows[0],
+    notifications: notifications.rows,
+    outbox: outbox.rows,
+  };
+}
+
+describe("contract completion transaction rollback", () => {
+  it.each(["jobs", "profiles"] as const)(
+    "rolls back every write when updating %s fails after the contract update, then completes exactly once",
+    async (table) => {
+      // Non-default values detect accidental resets as well as partial writes.
+      await database.pool.query(`
+        UPDATE contracts SET end_date = '2025-01-02T03:04:05Z' WHERE id = 31;
+        UPDATE profiles SET completed_projects = 7 WHERE user_id = 13;
+        INSERT INTO notifications (user_id, title, message, type, is_read, link)
+        VALUES (13, 'Existing notification', 'Must remain unchanged', 'info', true, '/contracts/31');
+      `);
+      const before = await completionSnapshot();
+      const failureMessage = `Injected ${table} completion failure`;
+      await database.pool.query(`
+        CREATE FUNCTION fail_completion_update() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM contracts WHERE id = 31 AND status = 'completed'
+              AND end_date IS NOT NULL AND end_date <> '2025-01-02T03:04:05Z'::timestamptz
+          ) THEN
+            RAISE EXCEPTION 'Failure injection reached before contract update';
+          END IF;
+          IF TG_TABLE_NAME = 'profiles' AND NOT EXISTS (
+            SELECT 1 FROM jobs WHERE id = 21 AND status = 'completed'
+          ) THEN
+            RAISE EXCEPTION 'Failure injection reached before job update';
+          END IF;
+          RAISE EXCEPTION '${failureMessage}';
+        END;
+        $$;
+        CREATE TRIGGER fail_completion_update BEFORE UPDATE ON ${table}
+        FOR EACH ROW EXECUTE FUNCTION fail_completion_update();
+      `);
+
+      const errorLog = vi.spyOn(console, "error");
+      try {
+        const failed = await agent.post("/api/contracts/31/complete").timeout(4000);
+        expect(failed.status).toBe(500);
+        // Confirm the PostgreSQL trigger fired at the intended point, not an
+        // unrelated HTTP error or a failure before the contract was updated.
+        expect(errorLog.mock.calls.some(([, error]) =>
+          error instanceof Error && error.message === failureMessage,
+        )).toBe(true);
+      } finally {
+        errorLog.mockRestore();
+      }
+      expect(await completionSnapshot()).toEqual(before);
+
+      // A separate connection must acquire every affected row immediately:
+      // a leaked transaction/lock should fail, not hang this regression.
+      const probe = await database.pool.connect();
+      try {
+        await probe.query("BEGIN");
+        await probe.query("SET LOCAL statement_timeout = '2s'");
+        await probe.query("SELECT id FROM contracts WHERE id = 31 FOR UPDATE NOWAIT");
+        await probe.query("SELECT id FROM jobs WHERE id = 21 FOR UPDATE NOWAIT");
+        await probe.query("SELECT user_id FROM profiles WHERE user_id = 13 FOR UPDATE NOWAIT");
+      } finally {
+        await probe.query("ROLLBACK");
+        probe.release();
+      }
+
+      await database.pool.query(`DROP TRIGGER fail_completion_update ON ${table}`);
+      const retries = await Promise.all([
+        agent.post("/api/contracts/31/complete").timeout(4000),
+        agent.post("/api/contracts/31/complete").timeout(4000),
+      ]);
+      expect(retries.map((response) => response.status).sort()).toEqual([200, 409]);
+      const completed = await completionSnapshot();
+      expect(completed.contract.status).toBe("completed");
+      expect(completed.contract.end_date).toBeInstanceOf(Date);
+      expect(completed.contract.end_date).not.toEqual(before.contract.end_date);
+      expect(completed.job.status).toBe("completed");
+      expect(completed.profile.completed_projects).toBe(8);
+      expect(completed.notifications).toHaveLength(3);
+      expect(completed.notifications[0]).toEqual(before.notifications[0]);
+      expect(completed.notifications.slice(1).map((row) => row.user_id).sort()).toEqual([11, 13]);
+      expect(completed.outbox).toEqual([]);
+      expect((await agent.post("/api/contracts/31/complete").timeout(4000)).status).toBe(409);
+      expect(await completionSnapshot()).toEqual(completed);
+    },
+  );
 });
 
 async function failNotificationWrite(table: "notifications" | "contract_notification_outbox") {
