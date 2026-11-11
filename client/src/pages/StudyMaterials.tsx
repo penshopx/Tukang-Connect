@@ -6,21 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { ELECTRICAL_MATERIALS } from "@/data/electricalMaterials";
+import type { Material } from "@/types/studyMaterial";
 
-interface Material {
-  id: number;
-  title: string;
-  level: string;
-  category: string;
-  duration: string;
-  description: string;
-  topics: string[];
-  content: string;
-  difficulty: "Mudah" | "Menengah" | "Sulit";
-  isPremium?: boolean;
-}
-
-const MATERIALS: Material[] = [
+const CORE_MATERIALS: Material[] = [
   {
     id: 1, title: "Manajemen K3 Konstruksi Gedung Bertingkat",
     level: "Level 5 - Kepala Pelaksana", category: "K3", duration: "45 menit", difficulty: "Sulit",
@@ -108,7 +97,8 @@ const MATERIALS: Material[] = [
   },
 ];
 
-const CATEGORIES_LIST = ["Semua", "K3", "Struktur", "Finishing", "Elektrikal", "Mekanikal", "Manajemen", "Sertifikasi"];
+const MATERIALS: Material[] = [...CORE_MATERIALS, ...ELECTRICAL_MATERIALS];
+const CATEGORIES_LIST = ["Semua", "K3", "Struktur", "Finishing", "Elektrikal", "Ketenagalistrikan", "Mekanikal", "Manajemen", "Sertifikasi"];
 const LEVELS_LIST = ["Semua Level", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6"];
 const DIFFICULTY_COLORS: Record<string, string> = { Mudah: "bg-green-100 text-green-700", Menengah: "bg-amber-100 text-amber-700", Sulit: "bg-red-100 text-red-700" };
 
@@ -136,7 +126,10 @@ export default function StudyMaterialsPage() {
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><BookOpen className="h-6 w-6 text-primary" /> Materi Belajar Konstruksi</h1>
-          <p className="text-muted-foreground text-sm mt-1">{MATERIALS.length} materi · Persiapan Uji Kompetensi BNSP & KKNI</p>
+          <p className="text-muted-foreground text-sm mt-1">{MATERIALS.length} materi · Kompetensi konstruksi & ketenagalistrikan</p>
+          <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
+            Materi ketenagalistrikan bersifat pengantar. Verifikasi klasifikasi usaha, sertifikat, dan perizinan terkini kepada sumber resmi.
+          </p>
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground mb-1">{completedCount}/{MATERIALS.length} selesai dipelajari</p>
