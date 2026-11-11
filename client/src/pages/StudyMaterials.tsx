@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { BookOpen, Search, Clock, ChevronRight, CheckCircle2, Lock, Star, Filter, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,8 +166,20 @@ export default function StudyMaterialsPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               {account?.profile?.skills?.length
                 ? "Dipilih dari keahlian dan level yang tercantum di profil."
-                : "Profil keahlian belum tersedia; berikut materi dasar untuk memulai."}
+                : account?.profile?.kkniLevel
+                  ? `Keahlian belum tercantum; materi disesuaikan dengan ${account.profile.kkniLevel}.`
+                  : account
+                    ? "Profil Anda belum mencantumkan keahlian; berikut materi dasar untuk memulai."
+                    : "Profil keahlian belum tersedia; berikut materi dasar untuk memulai."}
             </p>
+            {account && !account.profile?.skills?.length && (
+              <Link
+                href="/profile/edit"
+                className="mt-2 inline-flex items-center text-sm font-medium text-primary hover:underline"
+              >
+                Lengkapi keahlian profil <ChevronRight className="ml-1 h-4 w-4" />
+              </Link>
+            )}
           </div>
         </div>
         {recommendations.length ? (

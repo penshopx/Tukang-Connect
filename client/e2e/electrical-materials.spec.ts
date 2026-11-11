@@ -59,3 +59,29 @@ test("rekomendasi materi menjelaskan kecocokan dengan keahlian profil", async ({
     recommendations.getByText("Sesuai level profil: Level 4 - Supervisor").first(),
   ).toBeVisible();
 });
+
+test("profil tanpa keahlian mendapat tautan untuk melengkapi profil", async ({ page }) => {
+  await page.route("**/api/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/auth/user") {
+      return route.fulfill({
+        json: { id: 42, fullName: "Tenaga Ahli Uji", role: "tukang", onboardingCompleted: true },
+      });
+    }
+    if (pathname === "/api/me") {
+      return route.fulfill({
+        json: { id: 42, profile: { skills: [], kkniLevel: null } },
+      });
+    }
+    if (pathname === "/api/notifications/unread-count") return route.fulfill({ json: { count: 0 } });
+    return route.fulfill({ json: [] });
+  });
+
+  await page.goto("/study-materials");
+  const recommendations = page.getByRole("region", { name: "Rekomendasi untuk Anda" });
+  const profileLink = recommendations.getByRole("link", { name: "Lengkapi keahlian profil" });
+  await expect(profileLink).toHaveAttribute("href", "/profile/edit");
+  await expect(
+    recommendations.getByText("Profil Anda belum mencantumkan keahlian; berikut materi dasar untuk memulai."),
+  ).toBeVisible();
+});
