@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { BookOpen, Search, Clock, ChevronRight, CheckCircle2, Lock, Star, Filter } from "lucide-react";
+import { BookOpen, Search, Clock, ChevronRight, CheckCircle2, Lock, Star, Filter, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { useProfile } from "@/hooks/useUser";
+import { recommendStudyMaterials } from "@/lib/studyRecommendations";
 import { ELECTRICAL_MATERIALS } from "@/data/electricalMaterials";
 import type { Material } from "@/types/studyMaterial";
 import { useToast } from "@/hooks/use-toast";
@@ -118,6 +120,7 @@ function loadCompletedMaterials(): Set<number> {
 
 export default function StudyMaterialsPage() {
   const { toast } = useToast();
+  const { data: account } = useProfile();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Semua");
   const [level, setLevel] = useState("Semua Level");
@@ -134,6 +137,7 @@ export default function StudyMaterialsPage() {
 
   const completedCount = completed.size;
   const progressPct = Math.round((completedCount / MATERIALS.length) * 100);
+  const recommendations = recommendStudyMaterials(MATERIALS, account?.profile, completed);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -152,6 +156,43 @@ export default function StudyMaterialsPage() {
           <Progress value={progressPct} className="w-32 h-2" />
         </div>
       </div>
+
+      <section aria-labelledby="study-recommendations-heading" className="mb-6 rounded-xl border bg-primary/[0.03] p-4 sm:p-5">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="rounded-lg bg-primary/10 p-2 text-primary"><Sparkles className="h-5 w-5" /></div>
+          <div>
+            <h2 id="study-recommendations-heading" className="font-semibold">Rekomendasi untuk Anda</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {account?.profile?.skills?.length
+                ? "Dipilih dari keahlian dan level yang tercantum di profil."
+                : "Profil keahlian belum tersedia; berikut materi dasar untuk memulai."}
+            </p>
+          </div>
+        </div>
+        {recommendations.length ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recommendations.map(({ material, reason }) => (
+              <Card key={`recommendation-${material.id}`} className="bg-background">
+                <CardContent className="flex h-full flex-col p-4">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">{material.category}</Badge>
+                    <span className="text-xs text-primary">{reason}</span>
+                  </div>
+                  <h3 className="mb-2 text-sm font-semibold leading-snug">{material.title}</h3>
+                  <p className="mb-3 flex-1 text-xs text-muted-foreground">{material.description}</p>
+                  <Button size="sm" variant="outline" className="self-start" onClick={() => setSelected(material)}>
+                    Mulai belajar <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Semua materi yang cocok sudah selesai. Cari materi lain di daftar lengkap di bawah.
+          </p>
+        )}
+      </section>
 
       {/* Search + Filter */}
       <div className="mb-5 space-y-3">
@@ -188,7 +229,7 @@ export default function StudyMaterialsPage() {
       </div>
 
       {/* Materials Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div data-testid="materials-grid" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((m) => {
           const isDone = completed.has(m.id);
           return (
