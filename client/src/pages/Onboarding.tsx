@@ -278,6 +278,7 @@ export default function OnboardingPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Pilih Keahlian</label>
+                  <p className="text-xs text-muted-foreground mb-2">Pilih spesialisasi sesuai pengalaman; sertifikat dicatat terpisah.</p>
                   <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                     {SKILLS_LIST.map((skill) => (
                       <button

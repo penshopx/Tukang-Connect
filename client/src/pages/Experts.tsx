@@ -37,6 +37,8 @@ const SORT_OPTIONS = [
 const QUICK_SKILLS = [
   "Beton Bertulang", "K3", "Plesteran", "MEP", "BIM", "Struktur Baja",
   "Pondasi", "Arsitektur", "Pengecatan", "Keramik", "Las", "Sipil",
+  "Instalasi Listrik Gedung/Pabrik", "Distribusi & Transmisi Tenaga Listrik",
+  "Pembangkitan & Energi Terbarukan", "K3 Listrik",
 ];
 
 export default function ExpertsPage() {

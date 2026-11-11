@@ -232,7 +232,10 @@ export default function ProfileEdit() {
             </Card>
 
             <Card className="shadow-sm">
-              <CardHeader><CardTitle className="text-base">Keahlian</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Keahlian</CardTitle>
+                <p className="text-xs text-muted-foreground">Pilih spesialisasi yang sesuai pengalaman. Keahlian profil tidak otomatis menjadi sertifikasi terverifikasi.</p>
+              </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {SKILLS_LIST.map((skill) => (
