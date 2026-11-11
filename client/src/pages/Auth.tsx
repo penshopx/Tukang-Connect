@@ -330,7 +330,7 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
               )}
             </div>
 
-            {mode === "login" && (
+            {import.meta.env.DEV && mode === "login" && (
               <div className="mt-4 p-3 bg-muted rounded-lg text-xs text-muted-foreground">
                 <p className="font-semibold mb-1">Demo Akun:</p>
                 <p>Pelanggan: budi@example.com / password123</p>

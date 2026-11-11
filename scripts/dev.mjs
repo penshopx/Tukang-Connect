@@ -8,7 +8,10 @@ const procs = [
 let shuttingDown = false;
 
 const children = procs.map(({ name, cmd, args }) => {
-  const child = spawn(cmd, args, { stdio: "inherit", env: process.env });
+  const child = spawn(cmd, args, {
+    stdio: "inherit",
+    env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? "development" },
+  });
   child.on("error", (err) => {
     console.error(`[${name}] failed to start:`, err.message);
     shutdown(1);

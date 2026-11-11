@@ -257,6 +257,10 @@ function messageFromRow(r: any): Message {
 // ─── Seed ───────────────────────────────────────────────────────────────────
 
 async function seedDatabase() {
+  if (process.env.NODE_ENV !== "development") {
+    return;
+  }
+
   const check = await pool.query("SELECT id FROM seed_status WHERE id = 1");
   if (check.rows.length > 0) return; // already seeded
 
