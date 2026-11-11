@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Progress } from "@/components/ui/progress";
 import { ELECTRICAL_MATERIALS } from "@/data/electricalMaterials";
 import type { Material } from "@/types/studyMaterial";
+import { useToast } from "@/hooks/use-toast";
 
 const CORE_MATERIALS: Material[] = [
   {
@@ -98,16 +99,30 @@ const CORE_MATERIALS: Material[] = [
 ];
 
 const MATERIALS: Material[] = [...CORE_MATERIALS, ...ELECTRICAL_MATERIALS];
+const COMPLETED_STORAGE_KEY = "kerjaproyek:study-materials:completed:v1";
 const CATEGORIES_LIST = ["Semua", "K3", "Struktur", "Finishing", "Elektrikal", "Ketenagalistrikan", "Mekanikal", "Manajemen", "Sertifikasi"];
 const LEVELS_LIST = ["Semua Level", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6"];
 const DIFFICULTY_COLORS: Record<string, string> = { Mudah: "bg-green-100 text-green-700", Menengah: "bg-amber-100 text-amber-700", Sulit: "bg-red-100 text-red-700" };
 
+function loadCompletedMaterials(): Set<number> {
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(COMPLETED_STORAGE_KEY) ?? "[]");
+    if (!Array.isArray(saved)) return new Set();
+
+    const validIds = new Set(MATERIALS.map((material) => material.id));
+    return new Set(saved.filter((id): id is number => Number.isInteger(id) && validIds.has(id)));
+  } catch {
+    return new Set();
+  }
+}
+
 export default function StudyMaterialsPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Semua");
   const [level, setLevel] = useState("Semua Level");
   const [selected, setSelected] = useState<Material | null>(null);
-  const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const [completed, setCompleted] = useState<Set<number>>(loadCompletedMaterials);
   const [showFilters, setShowFilters] = useState(false);
 
   const filtered = MATERIALS.filter((m) => {
@@ -130,6 +145,7 @@ export default function StudyMaterialsPage() {
           <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
             Materi ketenagalistrikan bersifat pengantar. Verifikasi klasifikasi usaha, sertifikat, dan perizinan terkini kepada sumber resmi.
           </p>
+          <p className="text-xs text-muted-foreground mt-1">Progres belajar tersimpan di browser perangkat ini.</p>
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground mb-1">{completedCount}/{MATERIALS.length} selesai dipelajari</p>
@@ -252,7 +268,20 @@ export default function StudyMaterialsPage() {
                   <Button className="flex-1 gap-2"
                     variant={completed.has(selected.id) ? "outline" : "default"}
                     onClick={() => {
-                      setCompleted((prev) => { const s = new Set(prev); s.has(selected.id) ? s.delete(selected.id) : s.add(selected.id); return s; });
+                      const next = new Set(completed);
+                      if (next.has(selected.id)) next.delete(selected.id);
+                      else next.add(selected.id);
+                      setCompleted(next);
+
+                      try {
+                        window.localStorage.setItem(COMPLETED_STORAGE_KEY, JSON.stringify([...next]));
+                      } catch {
+                        toast({
+                          title: "Progres belum tersimpan",
+                          description: "Penyimpanan browser tidak tersedia. Perubahan ini hanya berlaku sampai halaman ditutup.",
+                          variant: "destructive",
+                        });
+                      }
                     }}>
                     {completed.has(selected.id) ? (<><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Sudah Dipelajari</>) : (<><ChevronRight className="h-4 w-4" /> Tandai Selesai</>)}
                   </Button>
