@@ -51,7 +51,7 @@ test("rekomendasi materi menjelaskan kecocokan dengan keahlian profil", async ({
 
   await page.goto("/study-materials");
   const recommendations = page.getByRole("region", { name: "Rekomendasi untuk Anda" });
-  await expect(recommendations.getByText("Berdasarkan keahlian: K3 Listrik")).toBeVisible();
+  await expect(recommendations.getByText("Berdasarkan keahlian: K3 Listrik").first()).toBeVisible();
   await expect(
     recommendations.getByRole("heading", { name: "Instalasi Pemanfaatan, K3 & Pengujian Listrik" }),
   ).toBeVisible();
@@ -83,5 +83,34 @@ test("profil tanpa keahlian mendapat tautan untuk melengkapi profil", async ({ p
   await expect(profileLink).toHaveAttribute("href", "/profile/edit");
   await expect(
     recommendations.getByText("Profil Anda belum mencantumkan keahlian; berikut materi dasar untuk memulai."),
+  ).toBeVisible();
+});
+
+test("rekomendasi menggabungkan beberapa keahlian tanpa mengulang materi", async ({ page }) => {
+  await page.route("**/api/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/auth/user") {
+      return route.fulfill({
+        json: { id: 42, fullName: "Tenaga Ahli Uji", role: "tukang", onboardingCompleted: true },
+      });
+    }
+    if (pathname === "/api/me") {
+      return route.fulfill({
+        json: { id: 42, profile: { skills: ["K3 Listrik", "Beton"], kkniLevel: null } },
+      });
+    }
+    if (pathname === "/api/notifications/unread-count") return route.fulfill({ json: { count: 0 } });
+    return route.fulfill({ json: [] });
+  });
+
+  await page.goto("/study-materials");
+  const recommendations = page.getByRole("region", { name: "Rekomendasi untuk Anda" });
+  await expect(recommendations.getByText("Berdasarkan keahlian: K3 Listrik").first()).toBeVisible();
+  await expect(recommendations.getByText("Berdasarkan keahlian: Beton")).toBeVisible();
+  await expect(
+    recommendations.getByRole("heading", { name: "Instalasi Listrik Bangunan Hunian (PUIL 2011)" }),
+  ).toBeVisible();
+  await expect(
+    recommendations.getByRole("heading", { name: "Teknik Pembesian & Pengecoran Beton" }),
   ).toBeVisible();
 });

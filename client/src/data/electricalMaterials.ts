@@ -10,6 +10,7 @@ export const ELECTRICAL_MATERIALS: Material[] = [
     difficulty: "Mudah",
     description: "Peta awal untuk mengenali bidang layanan, pelaku, dan bukti pengalaman proyek ketenagalistrikan.",
     topics: ["Jasa Penunjang Tenaga Listrik", "Ruang Lingkup Usaha", "Portofolio Proyek", "Enam Jenis Usaha"],
+    tags: ["power-business", "electrical-installation", "power-network", "power-generation"],
     content: `# Pengenalan Usaha Jasa Penunjang Tenaga Listrik
 
 Materi ini membantu kontraktor dan tenaga ahli mengidentifikasi ruang lingkup layanan sebelum mencari proyek atau menyiapkan dokumen usaha.
@@ -38,6 +39,7 @@ Lampiran menyebut topik “6 Jenis Usaha Jasa Penunjang Tenaga Listrik”, tetap
     difficulty: "Menengah",
     description: "Kerangka untuk memahami istilah dokumen usaha dan menyiapkan pertanyaan verifikasi sebelum pengajuan.",
     topics: ["SBUJPTL", "IUJPTL", "Perizinan Usaha", "Verifikasi Dokumen"],
+    tags: ["power-business"],
     content: `# Peta Dokumen SBUJPTL dan IUJPTL
 
 Gunakan materi ini sebagai daftar persiapan awal, bukan petunjuk legal untuk menerbitkan izin. Nama dokumen, urutan proses, dan persyaratan dapat berubah mengikuti aturan dan layanan pemerintah yang berlaku.
@@ -67,6 +69,7 @@ Gunakan materi ini sebagai daftar persiapan awal, bukan petunjuk legal untuk men
     difficulty: "Menengah",
     description: "Cara menata data bidang usaha dan kompetensi personel sebelum mencocokkan persyaratan proyek.",
     topics: ["Klasifikasi Usaha", "Kualifikasi", "SKTTK", "Masa Berlaku Sertifikat"],
+    tags: ["power-business", "certification"],
     content: `# Klasifikasi, Kualifikasi & SKTTK
 
 Pekerjaan badan usaha dan kompetensi tenaga kerja adalah dua hal yang perlu diperiksa secara terpisah. Portofolio seseorang tidak otomatis membuktikan kualifikasi badan usaha, begitu juga sebaliknya.
@@ -97,6 +100,7 @@ Persyaratan SKTTK maupun kualifikasi usaha dapat berbeda menurut kegiatan dan at
     difficulty: "Mudah",
     description: "Pengenalan peran proyek pembangkitan konvensional dan energi baru terbarukan.",
     topics: ["Pembangkitan", "Energi Baru Terbarukan", "Lingkup Kontrak", "Dokumentasi Proyek"],
+    tags: ["power-generation", "electrical-safety"],
     content: `# Pembangkitan Tenaga Listrik & EBT
 
 Modul ini memberi gambaran tingkat proyek untuk tenaga konstruksi, kontraktor, dan pekerja yang ingin mengenali peluang di bidang pembangkitan dan energi baru terbarukan.
@@ -125,6 +129,7 @@ Modul ini memberi gambaran tingkat proyek untuk tenaga konstruksi, kontraktor, d
     difficulty: "Menengah",
     description: "Orientasi jenis pekerjaan dan koordinasi proyek pada jaringan transmisi, distribusi, dan gardu induk.",
     topics: ["Transmisi", "Distribusi", "Gardu Induk", "Koordinasi Proyek"],
+    tags: ["power-network", "electrical-safety"],
     content: `# Transmisi, Distribusi & Gardu Induk
 
 Pekerjaan jaringan dan gardu memiliki batas akses, persyaratan keselamatan, dan koordinasi operasi yang ditentukan pemilik aset serta aturan proyek. Materi ini hanya orientasi untuk membantu membaca lingkup tender dan kebutuhan personel.
@@ -151,6 +156,7 @@ Jangan memasuki area terbatas atau melakukan pekerjaan pada instalasi tanpa otor
     difficulty: "Menengah",
     description: "Persiapan lingkup proyek instalasi gedung/pabrik, keselamatan, inspeksi, dan pengujian.",
     topics: ["Instalasi Pemanfaatan", "Elektrikal Gedung", "K3 Listrik", "Pemeriksaan & Pengujian"],
+    tags: ["electrical-installation", "electrical-testing", "electrical-safety", "electrical-k3"],
     content: `# Instalasi Pemanfaatan, K3 & Pengujian Listrik
 
 Modul ini melengkapi materi Instalasi Listrik Bangunan Hunian dengan fokus pada persiapan lingkup pekerjaan dan pengelolaan bukti proyek. Ini bukan panduan untuk melakukan pekerjaan bertegangan.

@@ -6,6 +6,7 @@ export interface Material {
   duration: string;
   description: string;
   topics: string[];
+  tags: string[];
   content: string;
   difficulty: "Mudah" | "Menengah" | "Sulit";
   isPremium?: boolean;
