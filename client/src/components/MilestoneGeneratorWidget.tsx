@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, Loader2, CheckCircle, Calendar, Plus } from "lucide-react";
+import { Brain, Loader2, CheckCircle, Calendar, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
@@ -23,9 +23,10 @@ interface Props {
 
 export default function MilestoneGeneratorWidget({ category, budget, startDate, onApply }: Props) {
   const [open, setOpen] = useState(false);
-  const { mutate, data, isPending } = useAgentMilestones();
+  const { mutate, data, isPending, isError, error, reset } = useAgentMilestones();
 
   const handleGenerate = () => {
+    reset();
     mutate({ category, budget, startDate }, {
       onSuccess: () => setOpen(true),
     });
@@ -46,6 +47,20 @@ export default function MilestoneGeneratorWidget({ category, budget, startDate, 
         {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
         Generate Milestone Otomatis
       </Button>
+
+      {isError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm" role="alert">
+          <p className="font-medium">Milestone belum dapat dibuat.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
+          <Button type="button" size="sm" variant="outline" className="mt-2 gap-2" onClick={handleGenerate}>
+            <RefreshCw className="h-3.5 w-3.5" />Coba lagi
+          </Button>
+        </div>
+      )}
+
+      {open && !isPending && data?.milestones?.length === 0 && (
+        <p className="text-sm text-muted-foreground" role="status">Belum ada milestone yang bisa disarankan untuk kategori ini.</p>
+      )}
 
       {open && data?.milestones?.length > 0 && (
         <div className="space-y-2">

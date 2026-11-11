@@ -1,6 +1,7 @@
 import { Link } from "wouter";
-import { Brain, TrendingUp, AlertCircle, CheckCircle, Info, ChevronRight } from "lucide-react";
+import { Brain, TrendingUp, AlertCircle, CheckCircle, Info, ChevronRight, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAgentInsights } from "@/hooks/useAgents";
 import { useUser } from "@/hooks/useUser";
@@ -15,10 +16,27 @@ const PRIORITY_LABEL = { high: "Penting", medium: "Perhatikan", low: "Info" };
 
 export default function AgentInsightsPanel() {
   const { data: user } = useUser();
-  const { data, isLoading } = useAgentInsights(!!user);
+  const { data, isLoading, isError, error, refetch } = useAgentInsights(!!user);
 
-  if (!user || isLoading) return null;
-  if (!data?.insights?.length) return null;
+  if (!user) return null;
+  if (isLoading) {
+    return <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground" role="status">Memuat rekomendasi...</div>;
+  }
+  if (isError) {
+    const sessionExpired = (error as any)?.status === 401;
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4" role="alert">
+        <p className="text-sm font-semibold">{sessionExpired ? "Sesi berakhir" : "Rekomendasi belum dapat dimuat"}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {sessionExpired ? "Silakan masuk kembali untuk melihat rekomendasi." : error.message}
+        </p>
+        {!sessionExpired && <Button size="sm" variant="outline" className="mt-3 gap-2" onClick={() => refetch()}><RefreshCw className="h-3.5 w-3.5" />Coba lagi</Button>}
+      </div>
+    );
+  }
+  if (!data?.insights?.length) {
+    return <div className="rounded-xl border bg-card p-4 text-center text-sm text-muted-foreground">Belum ada rekomendasi untuk ditampilkan.</div>;
+  }
 
   return (
     <Card className="border-none shadow-sm bg-gradient-to-br from-primary/3 to-blue-50/50">

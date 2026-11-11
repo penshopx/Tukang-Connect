@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, TrendingUp, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Brain, TrendingUp, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useAgentPriceSuggest } from "@/hooks/useAgents";
@@ -13,10 +13,11 @@ interface Props {
 
 export default function PriceSuggestWidget({ category, location, budget, onApply }: Props) {
   const [open, setOpen] = useState(false);
-  const { mutate, data, isPending } = useAgentPriceSuggest();
+  const { mutate, data, isPending, isError, error, reset } = useAgentPriceSuggest();
 
   const handleSuggest = () => {
     if (!category || !location) return;
+    reset();
     mutate({ category, location, existingBudget: budget || undefined });
     setOpen(true);
   };
@@ -37,6 +38,16 @@ export default function PriceSuggestWidget({ category, location, budget, onApply
         Saran Harga Pasar
         {open && data ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
       </Button>
+
+      {open && isError && (
+        <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm" role="alert">
+          <p className="font-medium">Saran harga belum dapat dimuat.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
+          <Button type="button" size="sm" variant="outline" className="mt-2 gap-2" onClick={handleSuggest}>
+            <RefreshCw className="h-3.5 w-3.5" />Coba lagi
+          </Button>
+        </div>
+      )}
 
       {open && data && (
         <div className="mt-3 p-4 bg-primary/5 rounded-xl border border-primary/10 space-y-3">

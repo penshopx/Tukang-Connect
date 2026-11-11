@@ -11,6 +11,7 @@ import { useUser } from "@/hooks/useUser";
 import { useToast } from "@/hooks/use-toast";
 import { JOB_CATEGORIES } from "@/lib/constants";
 import PriceSuggestWidget from "@/components/PriceSuggestWidget";
+import MilestoneGeneratorWidget from "@/components/MilestoneGeneratorWidget";
 import { canonicalMoneyInput } from "@/lib/utils";
 
 export default function JobCreate() {
@@ -138,6 +139,11 @@ export default function JobCreate() {
                   location={form.location}
                   budget={form.budget}
                   onApply={(value) => update("budget", value)}
+                />
+                <MilestoneGeneratorWidget
+                  category={form.category}
+                  budget={form.budget}
+                  startDate={form.deadline || undefined}
                 />
               </div>
               <div>

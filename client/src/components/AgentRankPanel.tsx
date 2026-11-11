@@ -1,10 +1,11 @@
 import { useLocation } from "wouter";
-import { Brain, Star, Award, Loader2, Trophy, TrendingUp, CheckCircle } from "lucide-react";
+import { Brain, Star, Award, Loader2, Trophy, TrendingUp, CheckCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAgentRankApplications } from "@/hooks/useAgents";
+import { useIsAuthenticated } from "@/hooks/useUser";
 import { getInitials, formatCurrency } from "@/lib/utils";
 
 interface Props {
@@ -27,7 +28,8 @@ const BADGE_ICON: Record<string, React.ReactNode> = {
 
 export default function AgentRankPanel({ jobId, onAccept, jobStatus }: Props) {
   const [, navigate] = useLocation();
-  const { data, isLoading } = useAgentRankApplications(jobId);
+  const isAuthenticated = useIsAuthenticated();
+  const { data, isLoading, isError, error, refetch } = useAgentRankApplications(jobId);
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-4">
@@ -36,8 +38,20 @@ export default function AgentRankPanel({ jobId, onAccept, jobStatus }: Props) {
     </div>
   );
 
+  if (isError) {
+    const sessionExpired = (error as any)?.status === 401 || !isAuthenticated;
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center" role="alert">
+        <p className="text-sm font-medium">{sessionExpired ? "Sesi berakhir. Masuk kembali untuk melihat ranking lamaran." : "Ranking lamaran belum dapat dimuat."}</p>
+        {!sessionExpired && <Button size="sm" variant="outline" className="mt-3 gap-2" onClick={() => refetch()}><RefreshCw className="h-3.5 w-3.5" />Coba lagi</Button>}
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <p className="text-sm text-muted-foreground text-center py-3">Masuk untuk melihat ranking lamaran.</p>;
+
   if (!data?.ranked?.length) return (
-    <p className="text-sm text-muted-foreground text-center py-3">Belum ada lamaran untuk diranking</p>
+    <p className="text-sm text-muted-foreground text-center py-3">Belum ada lamaran untuk diranking.</p>
   );
 
   return (

@@ -44,6 +44,11 @@ export function authenticatedRequest(url: string, signal: AbortSignal): Promise<
   return apiRequest("GET", url, undefined, signal);
 }
 
+export async function authenticatedRequestJson<T>(url: string, signal: AbortSignal): Promise<T> {
+  const response = await authenticatedRequest(url, signal);
+  return response.json() as Promise<T>;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -73,4 +78,14 @@ export async function apiRequest(
     );
   }
   return response;
+}
+
+export async function apiRequestJson<T>(
+  method: string,
+  url: string,
+  data?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await apiRequest(method, url, data, signal);
+  return response.json() as Promise<T>;
 }
