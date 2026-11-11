@@ -26,9 +26,10 @@ test.describe("Pesan gangguan autentikasi", () => {
     await page.locator('input[name="password"]').fill("password123");
     await page.getByRole("button", { name: "Masuk", exact: true }).click();
 
-    await expect(page.locator('[role="alert"]')).toContainText("Layanan Tidak Tersedia");
-    await expect(page.locator('[role="alert"]')).toContainText(OUTAGE_MESSAGE);
-    await expect(page.locator('[role="alert"]')).not.toContainText("Gagal masuk");
+    const formAlert = page.getByRole("main").locator('[role="alert"]');
+    await expect(formAlert).toContainText("Layanan Tidak Tersedia");
+    await expect(formAlert).toContainText(OUTAGE_MESSAGE);
+    await expect(formAlert).not.toContainText("Gagal masuk");
   });
 
   test("menampilkan pesan layanan saat pendaftaran menerima HTTP 503", async ({ page }) => {
@@ -55,16 +56,18 @@ test.describe("Pesan gangguan autentikasi", () => {
     await page.locator('input[name="password"]').fill("password123");
     await page.getByRole("button", { name: "Daftar Sekarang", exact: true }).click();
 
-    await expect(page.locator('[role="alert"]')).toContainText("Layanan Tidak Tersedia");
-    await expect(page.locator('[role="alert"]')).toContainText(OUTAGE_MESSAGE);
-    await expect(page.locator('[role="alert"]')).not.toContainText("Gagal daftar");
+    const formAlert = page.getByRole("main").locator('[role="alert"]');
+    await expect(formAlert).toContainText("Layanan Tidak Tersedia");
+    await expect(formAlert).toContainText(OUTAGE_MESSAGE);
+    await expect(formAlert).not.toContainText("Gagal daftar");
   });
 
   test("menampilkan pesan database dari callback tanpa pesan login gagal", async ({ page }) => {
     await page.goto("/login?error=db_unavailable");
 
-    await expect(page.locator('[role="alert"]')).toContainText("Layanan Tidak Tersedia");
-    await expect(page.locator('[role="alert"]')).toContainText(CALLBACK_OUTAGE_MESSAGE);
-    await expect(page.locator('[role="alert"]')).not.toContainText("Gagal masuk");
+    const formAlert = page.getByRole("main").locator('[role="alert"]');
+    await expect(formAlert).toContainText("Layanan Tidak Tersedia");
+    await expect(formAlert).toContainText(CALLBACK_OUTAGE_MESSAGE);
+    await expect(formAlert).not.toContainText("Gagal masuk");
   });
 });

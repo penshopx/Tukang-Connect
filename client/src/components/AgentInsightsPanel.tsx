@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAgentInsights } from "@/hooks/useAgents";
 import { useUser } from "@/hooks/useUser";
+import { ApiRequestError } from "@/lib/queryClient";
 
 const PRIORITY_STYLE = {
   high: { bg: "bg-red-50 border-red-100", icon: <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />, badge: "bg-red-100 text-red-700" },
@@ -23,7 +24,7 @@ export default function AgentInsightsPanel() {
     return <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground" role="status">Memuat rekomendasi...</div>;
   }
   if (isError) {
-    const sessionExpired = (error as any)?.status === 401;
+    const sessionExpired = error instanceof ApiRequestError && error.status === 401;
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4" role="alert">
         <p className="text-sm font-semibold">{sessionExpired ? "Sesi berakhir" : "Rekomendasi belum dapat dimuat"}</p>

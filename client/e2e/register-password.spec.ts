@@ -37,7 +37,7 @@ test.describe("Panduan password pendaftaran", () => {
     await expect(page.locator("#register-password-hint")).toHaveText(
       "Password tidak boleh hanya berisi spasi."
     );
-    await expect(page.locator('[role="alert"]')).toContainText("Password belum memenuhi syarat");
+    await expect(page.getByRole("main").locator('[role="alert"]')).toContainText("Password belum memenuhi syarat");
     await expect.poll(() => registerRequests).toHaveLength(0);
   });
 });

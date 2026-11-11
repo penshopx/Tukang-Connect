@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAgentRankApplications } from "@/hooks/useAgents";
 import { useIsAuthenticated } from "@/hooks/useUser";
+import { ApiRequestError } from "@/lib/queryClient";
 import { getInitials, formatCurrency } from "@/lib/utils";
 
 interface Props {
@@ -39,7 +40,7 @@ export default function AgentRankPanel({ jobId, onAccept, jobStatus }: Props) {
   );
 
   if (isError) {
-    const sessionExpired = (error as any)?.status === 401 || !isAuthenticated;
+    const sessionExpired = (error instanceof ApiRequestError && error.status === 401) || !isAuthenticated;
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center" role="alert">
         <p className="text-sm font-medium">{sessionExpired ? "Sesi berakhir. Masuk kembali untuk melihat ranking lamaran." : "Ranking lamaran belum dapat dimuat."}</p>

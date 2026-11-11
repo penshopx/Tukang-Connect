@@ -62,7 +62,7 @@ export default function MilestoneGeneratorWidget({ category, budget, startDate, 
         <p className="text-sm text-muted-foreground" role="status">Belum ada milestone yang bisa disarankan untuk kategori ini.</p>
       )}
 
-      {open && data?.milestones?.length > 0 && (
+      {open && data && data.milestones.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 p-2.5 bg-primary/5 rounded-lg border border-primary/10">
             <Brain className="h-3 w-3 text-primary" />
