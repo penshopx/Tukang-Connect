@@ -32,6 +32,7 @@ const BrainProject = lazy(() => import("@/pages/BrainProject"));
 const BrainContract = lazy(() => import("@/pages/BrainContract"));
 const Klinika = lazy(() => import("@/pages/Klinika"));
 const RuangKerja = lazy(() => import("@/pages/RuangKerja"));
+const PenelaahDokumen = lazy(() => import("@/pages/PenelaahDokumen"));
 const FeatureUnavailable = lazy(() => import("@/pages/FeatureUnavailable"));
 
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -132,6 +133,7 @@ export default function App() {
             <Route path="/study-materials" component={StudyMaterials} />
             <Route path="/competency-test" component={CompetencyTest} />
             <Route path="/ruang-kerja">{() => <ProtectedPage><RuangKerja /></ProtectedPage>}</Route>
+            <Route path="/bedah-dokumen" component={PenelaahDokumen} />
             <Route path="/job-board">
               {() => (
                 <FeatureUnavailable

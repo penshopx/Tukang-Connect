@@ -35,6 +35,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/study-materials" className="hover:text-white transition-colors">Materi Belajar</Link></li>
               <li><Link href="/competency-test" className="hover:text-white transition-colors">Uji Kompetensi</Link></li>
+              <li><Link href="/bedah-dokumen" className="hover:text-white transition-colors">Penelaah Dokumen</Link></li>
               <li><Link href="/chatbot" className="hover:text-white transition-colors">AI Assistant</Link></li>
               <li><Link href="/ruang-kerja" className="hover:text-white transition-colors">Ruang Kerja</Link></li>
             </ul>

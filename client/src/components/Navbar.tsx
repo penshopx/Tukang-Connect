@@ -58,6 +58,7 @@ export default function Navbar() {
       items: [
         { href: "/cost-estimator", label: "Estimator Biaya RAB", icon: <Calculator className="h-4 w-4 text-amber-500" />, badge: "Acuan SNI & AHSP" },
         { href: "/jobs", label: "Cari Proyek", icon: <Briefcase className="h-4 w-4 text-blue-500" /> },
+        { href: "/bedah-dokumen", label: "Penelaah Dokumen", icon: <FileText className="h-4 w-4 text-sky-600" />, badge: "Lokal" },
       ],
     },
     {

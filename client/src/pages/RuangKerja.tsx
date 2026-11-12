@@ -12,6 +12,7 @@ import {
   CircleHelp,
   ClipboardCheck,
   FileText,
+  FileCheck2,
   HardHat,
   Layers3,
   Lightbulb,
@@ -63,6 +64,7 @@ const DESTINATIONS = [
   { title: "Estimator biaya", description: "Susun perkiraan biaya pekerjaan.", href: "/cost-estimator", icon: Calculator, category: "Administrasi", number: "06", tone: "cyan" },
   { title: "Kontrak", description: "Pantau kesepakatan proyek Anda.", href: "/contracts", icon: FileText, category: "Administrasi", number: "07", tone: "sky" },
   { title: "Edit profil", description: "Perbarui informasi profesional.", href: "/profile/edit", icon: UserRound, category: "Administrasi", number: "08", tone: "blue" },
+  { title: "Penelaah dokumen", description: "Periksa topik dokumen secara lokal.", href: "/bedah-dokumen", icon: FileCheck2, category: "Administrasi", number: "09", tone: "cyan" },
 ];
 
 function readChecklist(storageKey: string): Record<string, boolean> {
