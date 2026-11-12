@@ -13,6 +13,19 @@ import { Badge } from "@/components/ui/badge";
 import { useUser, useLogout, useUnreadCount } from "@/hooks/useUser";
 import { getInitials } from "@/lib/utils";
 
+type ToolItem = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  badge?: string;
+  highlight?: boolean;
+};
+
+type ToolGroup = {
+  label: string;
+  items: ToolItem[];
+};
+
 export default function Navbar() {
   const [location, navigate] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -32,7 +45,7 @@ export default function Navbar() {
     { href: "/contracts", label: "Kontrak", icon: <FileText className="h-4 w-4" />, auth: true },
   ];
 
-  const toolGroups = [
+  const toolGroups: ToolGroup[] = [
     {
       label: "Konsultasi & AI",
       items: [
@@ -52,6 +65,12 @@ export default function Navbar() {
       items: [
         { href: "/competency-test", label: "Simulasi Kompetensi", icon: <Trophy className="h-4 w-4 text-rose-500" />, badge: "Latihan" },
         { href: "/study-materials", label: "Materi Belajar", icon: <BookOpen className="h-4 w-4 text-green-500" /> },
+      ],
+    },
+    {
+      label: "Ekosistem Gustafta",
+      items: [
+        { href: "/ekosistem", label: "Direktori Layanan", icon: <Building2 className="h-4 w-4 text-blue-500" />, badge: "Eksternal" },
       ],
     },
   ];
