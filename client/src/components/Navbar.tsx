@@ -68,9 +68,9 @@ export default function Navbar() {
       ],
     },
     {
-      label: "Ekosistem Gustafta",
+      label: "Ruang Kerja",
       items: [
-        { href: "/ekosistem", label: "Direktori Layanan", icon: <Building2 className="h-4 w-4 text-blue-500" />, badge: "Eksternal" },
+        { href: "/ruang-kerja", label: "Pusat Kerja", icon: <Building2 className="h-4 w-4 text-blue-500" />, badge: "KerjaProyek" },
       ],
     },
   ];

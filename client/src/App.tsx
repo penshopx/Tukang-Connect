@@ -31,7 +31,7 @@ const MyJobs = lazy(() => import("@/pages/MyJobs"));
 const BrainProject = lazy(() => import("@/pages/BrainProject"));
 const BrainContract = lazy(() => import("@/pages/BrainContract"));
 const Klinika = lazy(() => import("@/pages/Klinika"));
-const EkosistemGustafta = lazy(() => import("@/pages/EkosistemGustafta"));
+const RuangKerja = lazy(() => import("@/pages/RuangKerja"));
 const FeatureUnavailable = lazy(() => import("@/pages/FeatureUnavailable"));
 
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -131,7 +131,7 @@ export default function App() {
             <Route path="/admin">{() => <ProtectedPage><AdminPage /></ProtectedPage>}</Route>
             <Route path="/study-materials" component={StudyMaterials} />
             <Route path="/competency-test" component={CompetencyTest} />
-            <Route path="/ekosistem" component={EkosistemGustafta} />
+            <Route path="/ruang-kerja">{() => <ProtectedPage><RuangKerja /></ProtectedPage>}</Route>
             <Route path="/job-board">
               {() => (
                 <FeatureUnavailable
