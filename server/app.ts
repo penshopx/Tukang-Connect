@@ -45,6 +45,17 @@ const positiveMoney = z.union([
     return z.NEVER;
   }
 });
+const createReviewPayload = z.object({
+  jobId: z.number().int().positive(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().min(1).max(1000),
+}).strict();
+function isPastDeadline(deadline: string | Date | null | undefined): boolean {
+  if (!deadline) return false;
+  const date = deadline instanceof Date ? deadline : new Date(deadline);
+  if (!Number.isFinite(date.getTime())) return true;
+  return date.toISOString().slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
 const optionalNullablePositiveMoney = positiveMoney.nullable().optional();
 const profileUpdateMoney = z
   .object({ hourlyRate: positiveMoney.nullable().optional() })
@@ -883,6 +894,9 @@ app.post("/api/jobs/:id/apply", requireAuth, async (req, res) => {
   const jobId = Number(req.params.id);
   const job = await storage.getJobById(jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
+  if (job.status !== "open" || isPastDeadline(job.deadline)) {
+    return res.status(409).json({ error: "Proyek sudah ditutup atau melewati batas waktu lamaran" });
+  }
   // Withdrawn and rejected applications are historical records, not active
   // submissions. Keep them for the client's history while allowing the worker
   // to submit a new application. Pending and accepted remain duplicate-proof.
@@ -1274,12 +1288,33 @@ app.get("/api/reviews/:userId/rating", async (req, res) => {
 });
 
 app.post("/api/reviews/:userId", requireAuth, async (req, res) => {
-  const review = await storage.createReview({
-    ...req.body,
+  const revieweeId = Number(req.params.userId);
+  if (!Number.isSafeInteger(revieweeId) || revieweeId <= 0 || revieweeId === req.session.userId) {
+    return res.status(400).json({ error: "Penerima ulasan tidak valid" });
+  }
+
+  const parsed = createReviewPayload.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Rating, komentar, atau proyek tidak valid" });
+  }
+
+  const payload = {
+    jobId: parsed.data.jobId!,
+    rating: parsed.data.rating!,
+    comment: parsed.data.comment!,
+  };
+  const result = await storage.createReview({
+    ...payload,
     reviewerId: req.session.userId!,
-    revieweeId: Number(req.params.userId),
+    revieweeId,
   });
-  res.status(201).json(review);
+  if (result.status === "not_eligible") {
+    return res.status(403).json({ error: "Ulasan hanya dapat diberikan klien setelah kontrak proyek selesai" });
+  }
+  if (result.status === "already_reviewed") {
+    return res.status(409).json({ error: "Anda sudah mengirim ulasan untuk proyek ini" });
+  }
+  res.status(201).json(result.review);
 });
 
 // Portfolio
@@ -1964,7 +1999,10 @@ const BIMTEK_COURSES = [
 ];
 
 app.get("/api/bimtek", (_req, res) => {
-  res.json({ courses: BIMTEK_COURSES, total: BIMTEK_COURSES.length });
+  res.status(503).json({
+    available: false,
+    error: "Daftar dan jadwal pelatihan sedang dinonaktifkan sampai informasi penyelenggara diverifikasi.",
+  });
 });
 
 // ─── External Jobs Board ────────────────────────────────────────────────────
@@ -2000,71 +2038,17 @@ let jobsCache: typeof SEEDED_JOBS | null = null;
 let cacheTime = 0;
 
 app.get("/api/external-jobs", async (req, res) => {
-  const now = Date.now();
-  if (jobsCache && now - cacheTime < 15 * 60 * 1000) {
-    return res.json({ jobs: jobsCache, total: jobsCache.length, cached: true, scrapedAt: new Date(cacheTime).toISOString() });
-  }
-
-  let extraJobs: typeof SEEDED_JOBS = [];
-  try {
-    const response = await fetch("https://www.loker.id/lowongan-kerja/konstruksi-dan-bangunan", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; KerjaProyekBot/1.0)" },
-      signal: AbortSignal.timeout(5000),
-    });
-    const html = await response.text();
-    const matches = [...html.matchAll(/<h2[^>]*>\s*<a[^>]*>([^<]{10,80})<\/a>/g)];
-    for (const [, title] of matches.slice(0, 5)) {
-      extraJobs.push({ id: `live-${Date.now()}-${Math.random()}`, title: title.trim(), company: "Live dari Loker.id", location: "Indonesia", type: "full_time", category: "Konstruksi", level: "Bervariasi", salaryMin: 0, salaryMax: 0, salaryLabel: "Lihat sumber", description: "Lowongan langsung dari Loker.id. Klik 'Lihat Detail' untuk info lengkap.", requirements: [], benefits: [], source: "Loker.id (Live)", sourceUrl: "https://www.loker.id/lowongan-kerja/konstruksi-dan-bangunan", postedAt: new Date().toISOString().slice(0, 10), isVerified: false, isFeatured: false, workType: "Bervariasi" });
-    }
-  } catch (_) { /* Scraping gagal, gunakan data seed */ }
-
-  const allJobs = [...SEEDED_JOBS, ...extraJobs];
-  jobsCache = allJobs;
-  cacheTime = now;
-
-  res.json({ jobs: allJobs, total: allJobs.length, cached: false, scrapedAt: new Date().toISOString() });
+  res.status(503).json({
+    available: false,
+    jobs: [],
+    error: "Agregasi lowongan eksternal dinonaktifkan sampai sumber dan masa berlaku lowongan dapat diverifikasi. Gunakan proyek di marketplace KerjaProyek.",
+  });
 });
 
-// Upah standar referensi
 app.get("/api/salary-reference", (_req, res) => {
-  res.json({
-    updatedAt: "2025",
-    source: "99.co & Cermati (2025)",
-    harian: [
-      { position: "Kepala Tukang Cat", rate: 150750, unit: "orang/hari" },
-      { position: "Tukang Cat Terampil", rate: 70750, unit: "orang/hari" },
-      { position: "Tukang Cat Setengah Terampil", rate: 60750, unit: "orang/hari" },
-      { position: "Kepala Tukang Kayu", rate: 150750, unit: "orang/hari" },
-      { position: "Tukang Kayu", rate: 130750, unit: "orang/hari" },
-      { position: "Tukang Kayu Setengah Terampil", rate: 90750, unit: "orang/hari" },
-      { position: "Kepala Tukang Batu", rate: 150750, unit: "orang/hari" },
-      { position: "Tukang Batu", rate: 120750, unit: "orang/hari" },
-      { position: "Tukang Batu Setengah Terampil", rate: 90750, unit: "orang/hari" },
-      { position: "Kepala Tukang Besi/Pembesian", rate: 150750, unit: "orang/hari" },
-      { position: "Tukang Besi/Pembesian", rate: 120750, unit: "orang/hari" },
-      { position: "Kepala Tukang Las", rate: 170000, unit: "orang/hari" },
-      { position: "Tukang Las Terampil", rate: 140000, unit: "orang/hari" },
-      { position: "Kepala Tukang Listrik", rate: 170000, unit: "orang/hari" },
-      { position: "Tukang Listrik Terampil", rate: 130000, unit: "orang/hari" },
-      { position: "Kepala Tukang Plambing", rate: 160000, unit: "orang/hari" },
-      { position: "Tukang Plambing", rate: 125000, unit: "orang/hari" },
-      { position: "Mandor (Kepala Pelaksana)", rate: 200000, unit: "orang/hari" },
-      { position: "Pekerja Pembantu (Helper)", rate: 80000, unit: "orang/hari" },
-    ],
-    borongan: [
-      { pekerjaan: "Pondasi Batu Kali", rate: 2000000, unit: "per m³", range: "1,8 – 2,5 jt" },
-      { pekerjaan: "Pasang Bata Merah", rate: 95000, unit: "per m²", range: "80 – 120 rb" },
-      { pekerjaan: "Plesteran", rate: 45000, unit: "per m²", range: "35 – 60 rb" },
-      { pekerjaan: "Acian", rate: 35000, unit: "per m²", range: "25 – 45 rb" },
-      { pekerjaan: "Pasang Keramik Lantai", rate: 65000, unit: "per m²", range: "50 – 90 rb" },
-      { pekerjaan: "Pengecatan Dinding", rate: 55000, unit: "per m²", range: "40 – 70 rb" },
-      { pekerjaan: "Rangka Atap Baja Ringan", rate: 135000, unit: "per m²", range: "100 – 180 rb" },
-      { pekerjaan: "Pasang Genteng", rate: 45000, unit: "per m²", range: "35 – 60 rb" },
-      { pekerjaan: "Pasang Keramik Dinding", rate: 75000, unit: "per m²", range: "60 – 100 rb" },
-      { pekerjaan: "Waterproofing Coating", rate: 85000, unit: "per m²", range: "65 – 120 rb" },
-      { pekerjaan: "Bekisting Kolom/Balok", rate: 95000, unit: "per m²", range: "75 – 130 rb" },
-      { pekerjaan: "Pembesian Kolom/Balok", rate: 18000, unit: "per kg besi", range: "15 – 25 rb" },
-    ],
+  res.status(503).json({
+    available: false,
+    error: "Referensi upah dinonaktifkan sementara karena sumber pembaruan terbaru belum diverifikasi.",
   });
 });
 

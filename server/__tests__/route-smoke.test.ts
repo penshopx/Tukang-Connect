@@ -45,6 +45,7 @@ vi.mock("../storage.js", () => ({
     createMessage: vi.fn(),
     getDisputes: vi.fn(),
     createDispute: vi.fn(),
+    createReview: vi.fn(),
     getAnalytics: vi.fn(),
   },
   withTransaction: vi.fn(),
@@ -111,7 +112,7 @@ const JOB = {
   clientId: OWNER.id,
   workerId: null,
   createdAt: "2024-01-02T00:00:00.000Z",
-  deadline: "2024-06-01T00:00:00.000Z",
+  deadline: "2099-06-01T00:00:00.000Z",
 };
 
 const CONTRACT = {
@@ -198,6 +199,21 @@ describe("Express route smoke tests", () => {
       expect(response.headers["content-type"]).toMatch(/application\/json/);
       expect(response.body).toEqual({ status: "ok" });
       expect(pool.query).toHaveBeenCalledWith("SELECT 1");
+    });
+
+    it("disables unverified external data feeds instead of returning stale records", async () => {
+      const [jobs, bimtek, salary] = await Promise.all([
+        request(app).get("/api/external-jobs"),
+        request(app).get("/api/bimtek"),
+        request(app).get("/api/salary-reference"),
+      ]);
+
+      expect(jobs.status).toBe(503);
+      expect(jobs.body).toMatchObject({ available: false, jobs: [] });
+      expect(bimtek.status).toBe(503);
+      expect(bimtek.body).toMatchObject({ available: false });
+      expect(salary.status).toBe(503);
+      expect(salary.body).toMatchObject({ available: false });
     });
 
     it("lists jobs and includes the public client summary", async () => {
@@ -356,6 +372,107 @@ describe("Express route smoke tests", () => {
   });
 
   describe("authenticated routes", () => {
+    describe("review eligibility", () => {
+      it("rejects invalid review values before storage", async () => {
+        const agent = await authenticatedAgent(OWNER);
+
+        const response = await agent.post(`/api/reviews/${WORKER.id}`).send({
+          jobId: JOB.id,
+          rating: 6,
+          comment: "Pekerjaan selesai dengan baik",
+        });
+
+        expect(response.status).toBe(400);
+        expect(storage.createReview).not.toHaveBeenCalled();
+      });
+
+      it("accepts a review only after storage confirms an eligible completed contract", async () => {
+        const review = {
+          id: 51,
+          reviewerId: OWNER.id,
+          revieweeId: WORKER.id,
+          jobId: JOB.id,
+          rating: 5,
+          comment: "Pekerjaan selesai dengan baik",
+          createdAt: "2024-02-01T00:00:00.000Z",
+        };
+        vi.mocked(storage.createReview).mockResolvedValueOnce({
+          status: "created",
+          review,
+        } as any);
+        const agent = await authenticatedAgent(OWNER);
+
+        const response = await agent.post(`/api/reviews/${WORKER.id}`).send({
+          jobId: JOB.id,
+          rating: 5,
+          comment: "  Pekerjaan selesai dengan baik  ",
+        });
+
+        expect(response.status).toBe(201);
+        expect(response.body).toEqual(review);
+        expect(storage.createReview).toHaveBeenCalledWith({
+          reviewerId: OWNER.id,
+          revieweeId: WORKER.id,
+          jobId: JOB.id,
+          rating: 5,
+          comment: "Pekerjaan selesai dengan baik",
+        });
+      });
+
+      it("rejects reviews without a matching completed contract", async () => {
+        vi.mocked(storage.createReview).mockResolvedValueOnce({
+          status: "not_eligible",
+        } as any);
+        const agent = await authenticatedAgent(OWNER);
+
+        const response = await agent.post(`/api/reviews/${WORKER.id}`).send({
+          jobId: JOB.id,
+          rating: 5,
+          comment: "Pekerjaan selesai dengan baik",
+        });
+
+        expect(response.status).toBe(403);
+        expect(response.body.error).toContain("kontrak proyek selesai");
+      });
+
+      it("rejects duplicate reviews for the same project", async () => {
+        vi.mocked(storage.createReview).mockResolvedValueOnce({
+          status: "already_reviewed",
+        } as any);
+        const agent = await authenticatedAgent(OWNER);
+
+        const response = await agent.post(`/api/reviews/${WORKER.id}`).send({
+          jobId: JOB.id,
+          rating: 5,
+          comment: "Pekerjaan selesai dengan baik",
+        });
+
+        expect(response.status).toBe(409);
+        expect(response.body.error).toContain("sudah mengirim ulasan");
+      });
+    });
+
+    describe("job application deadlines", () => {
+      it.each([
+        { status: "completed", deadline: "2099-06-01T00:00:00.000Z" },
+        { status: "open", deadline: "2025-06-01T00:00:00.000Z" },
+      ])("rejects applications for $status projects with unavailable deadlines", async (jobState) => {
+        vi.mocked(storage.getJobById).mockResolvedValueOnce({
+          ...JOB,
+          ...jobState,
+        } as any);
+        const agent = await authenticatedAgent(WORKER);
+
+        const response = await agent
+          .post(`/api/jobs/${JOB.id}/apply`)
+          .send({ message: "Saya siap" });
+
+        expect(response.status).toBe(409);
+        expect(storage.getApplicationsByJob).not.toHaveBeenCalled();
+        expect(storage.createApplication).not.toHaveBeenCalled();
+      });
+    });
+
     it("rejects a protected route when no session is present", async () => {
       const response = await request(app).get("/api/contracts");
 

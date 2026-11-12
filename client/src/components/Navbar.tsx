@@ -3,8 +3,8 @@ import { Link, useLocation } from "wouter";
 import {
   Bell, Menu, X, HardHat, ChevronDown, User, LogOut,
   LayoutDashboard, Briefcase, Users, FileText, AlertTriangle,
-  MessageSquare, Calculator, BookOpen, Wrench, Newspaper,
-  Bot, Trophy, GraduationCap, Building2, Zap
+  MessageSquare, Calculator, BookOpen, Wrench,
+  Bot, Trophy, Building2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -44,14 +44,13 @@ export default function Navbar() {
       label: "Alat Estimasi & Proyek",
       items: [
         { href: "/cost-estimator", label: "Estimator Biaya RAB", icon: <Calculator className="h-4 w-4 text-amber-500" />, badge: "Acuan SNI & AHSP" },
-        { href: "/job-board", label: "Lowongan Konstruksi", icon: <Newspaper className="h-4 w-4 text-blue-500" />, badge: "Peluang Baru" },
+        { href: "/jobs", label: "Cari Proyek", icon: <Briefcase className="h-4 w-4 text-blue-500" /> },
       ],
     },
     {
       label: "Edukasi & Sertifikasi",
       items: [
-        { href: "/bimtek", label: "Bimtek & Pelatihan", icon: <GraduationCap className="h-4 w-4 text-teal-500" />, badge: "Pelatihan Terarah" },
-        { href: "/competency-test", label: "Uji Kompetensi SKKNI", icon: <Trophy className="h-4 w-4 text-rose-500" />, badge: "BNSP" },
+        { href: "/competency-test", label: "Simulasi Kompetensi", icon: <Trophy className="h-4 w-4 text-rose-500" />, badge: "Latihan" },
         { href: "/study-materials", label: "Materi Belajar", icon: <BookOpen className="h-4 w-4 text-green-500" /> },
       ],
     },

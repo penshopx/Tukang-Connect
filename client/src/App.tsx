@@ -30,9 +30,8 @@ const CompetencyTest = lazy(() => import("@/pages/CompetencyTest"));
 const MyJobs = lazy(() => import("@/pages/MyJobs"));
 const BrainProject = lazy(() => import("@/pages/BrainProject"));
 const BrainContract = lazy(() => import("@/pages/BrainContract"));
-const JobBoard = lazy(() => import("@/pages/JobBoard"));
 const Klinika = lazy(() => import("@/pages/Klinika"));
-const Bimtek = lazy(() => import("@/pages/Bimtek"));
+const FeatureUnavailable = lazy(() => import("@/pages/FeatureUnavailable"));
 
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
@@ -131,9 +130,29 @@ export default function App() {
             <Route path="/admin">{() => <ProtectedPage><AdminPage /></ProtectedPage>}</Route>
             <Route path="/study-materials" component={StudyMaterials} />
             <Route path="/competency-test" component={CompetencyTest} />
-            <Route path="/job-board" component={JobBoard} />
+            <Route path="/job-board">
+              {() => (
+                <FeatureUnavailable
+                  title="Lowongan eksternal sementara dinonaktifkan"
+                  message="Data lowongan dari sumber luar belum dapat diperiksa masa berlaku dan tautan aslinya. Agar Anda tidak menerima informasi yang kedaluwarsa, gunakan daftar proyek KerjaProyek yang dikelola langsung di platform."
+                  actionLabel="Lihat proyek tersedia"
+                  actionHref="/jobs"
+                />
+              )}
+            </Route>
             <Route path="/klinika" component={Klinika} />
-            <Route path="/bimtek" component={Bimtek} />
+            <Route path="/bimtek">
+              {() => (
+                <FeatureUnavailable
+                  title="Jadwal Bimtek sedang ditinjau"
+                  message="Jadwal, biaya, dan klaim penyelenggara belum dapat diverifikasi, sehingga daftar pelatihan sementara disembunyikan. Materi belajar dan latihan kompetensi tetap tersedia."
+                  actionLabel="Buka materi belajar"
+                  actionHref="/study-materials"
+                  secondaryLabel="Latihan kompetensi"
+                  secondaryHref="/competency-test"
+                />
+              )}
+            </Route>
             <Route component={NotFound} />
           </Switch>
         </Suspense>

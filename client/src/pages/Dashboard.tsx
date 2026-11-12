@@ -29,19 +29,19 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 const TOOL_CARDS_OWNER = [
   { href: "/jobs/create", icon: "🏗️", title: "Buat Proyek Baru", desc: "Post proyek & temukan tukang terbaik", color: "from-blue-500 to-indigo-600", badge: "AI Matching" },
-  { href: "/experts", icon: "👷", title: "Cari Tenaga Ahli", desc: "Tukang & mandor terverifikasi KKNI", color: "from-green-500 to-emerald-600", badge: "850+ Ahli" },
-  { href: "/cost-estimator", icon: "💰", title: "Estimasi Biaya", desc: "Hitung RAB instan berdasarkan SNI 2025", color: "from-amber-500 to-orange-600", badge: "Gratis" },
+  { href: "/experts", icon: "👷", title: "Cari Tenaga Ahli", desc: "Temukan tukang dan mandor berdasarkan keahlian", color: "from-green-500 to-emerald-600", badge: "Cari Ahli" },
+  { href: "/cost-estimator", icon: "💰", title: "Estimasi Biaya", desc: "Susun perkiraan awal sesuai kebutuhan proyek", color: "from-amber-500 to-orange-600", badge: "Gratis" },
   { href: "/klinika", icon: "🧠", title: "Klinika Teknis", desc: "Tanya 6 Agen AI spesialis konstruksi", color: "from-purple-500 to-violet-600", badge: "Multi-Agent" },
-  { href: "/job-board", icon: "📋", title: "Papan Lowongan", desc: "Aggregasi lowongan dari Loker.id & more", color: "from-rose-500 to-pink-600", badge: "25+ Jobs" },
-  { href: "/bimtek", icon: "🎓", title: "Bimtek & Pelatihan", desc: "15 program PUPR/Kemnaker/BNSP", color: "from-teal-500 to-cyan-600", badge: "Bersertifikat" },
+  { href: "/jobs", icon: "📋", title: "Cari Proyek", desc: "Lihat proyek aktif di marketplace KerjaProyek", color: "from-rose-500 to-pink-600", badge: "Marketplace" },
+  { href: "/study-materials", icon: "📚", title: "Materi Belajar", desc: "Pelajari materi K3 dan teknis konstruksi", color: "from-teal-500 to-cyan-600", badge: "Gratis" },
 ];
 
 const TOOL_CARDS_TUKANG = [
   { href: "/jobs", icon: "📋", title: "Proyek Tersedia", desc: "Temukan proyek sesuai keahlian Anda", color: "from-blue-500 to-indigo-600", badge: "Buka Sekarang" },
-  { href: "/job-board", icon: "🗞️", title: "Lowongan Konstruksi", desc: "Info kerja dari Loker.id, Jobstreet, OLX", color: "from-green-500 to-emerald-600", badge: "Real-time" },
+  { href: "/jobs", icon: "🗞️", title: "Proyek Konstruksi", desc: "Peluang proyek dari klien KerjaProyek", color: "from-green-500 to-emerald-600", badge: "Marketplace" },
   { href: "/klinika", icon: "🧠", title: "Klinika Teknis", desc: "Diskusi teknis dengan komunitas & AI", color: "from-purple-500 to-violet-600", badge: "6 Agen AI" },
-  { href: "/bimtek", icon: "🎓", title: "Tingkatkan Skill", desc: "Bimtek & pelatihan bersertifikat BNSP", color: "from-amber-500 to-orange-600", badge: "Sertifikat" },
-  { href: "/competency-test", icon: "🏆", title: "Uji Kompetensi", desc: "Latihan soal SKKNI & KKNI resmi", color: "from-rose-500 to-pink-600", badge: "BNSP Ready" },
+  { href: "/study-materials", icon: "🎓", title: "Tingkatkan Keahlian", desc: "Materi belajar teknis konstruksi", color: "from-amber-500 to-orange-600", badge: "Belajar Mandiri" },
+  { href: "/competency-test", icon: "🏆", title: "Simulasi Kompetensi", desc: "Latihan soal untuk belajar topik konstruksi", color: "from-rose-500 to-pink-600", badge: "Simulasi" },
   { href: "/study-materials", icon: "📚", title: "Materi Belajar", desc: "Modul SNI, K3, teknis konstruksi", color: "from-teal-500 to-cyan-600", badge: "Gratis" },
 ];
 
@@ -53,23 +53,6 @@ const PROFILE_ITEMS_TUKANG = [
   { key: "certifications", label: "Sertifikasi BNSP/K3", icon: "📜" },
   { key: "portfolio", label: "Portfolio Proyek", icon: "🏗️" },
 ];
-
-const BIMTEK_RECS: Record<string, { title: string; provider: string; href: string }[]> = {
-  "Konstruksi Umum": [
-    { title: "Manajemen Proyek Konstruksi (PMBOK)", provider: "Bimteklatihnas", href: "/bimtek" },
-    { title: "Penyusunan RAB Konstruksi", provider: "Platindo", href: "/bimtek" },
-  ],
-  "Struktur": [
-    { title: "Teknisi Struktur Beton Bertulang", provider: "Bina Konstruksi", href: "/bimtek" },
-    { title: "Masterclass BIM 5D – Revit", provider: "BIM Konstruksi", href: "/bimtek" },
-  ],
-  "Listrik": [
-    { title: "Instalasi Listrik PUIL 2011", provider: "PLN Persero", href: "/bimtek" },
-  ],
-  "K3": [
-    { title: "Pelatihan Ahli K3 Konstruksi", provider: "Kemnaker RI", href: "/bimtek" },
-  ],
-};
 
 function getProfileCompleteness(profile: any, user: any): { score: number; missing: string[] } {
   if (!profile) return { score: 0, missing: PROFILE_ITEMS_TUKANG.map(i => i.label) };
@@ -416,36 +399,26 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Bimtek Recommendations — Tukang */}
+          {/* Verified self-study alternatives while scheduled training data is unavailable */}
           {isTukang && (
             <Card className="border-none shadow-sm bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-indigo-600" /> Bimtek Direkomendasikan Untuk Anda
+                  <GraduationCap className="h-4 w-4 text-indigo-600" /> Belajar dan Uji Kompetensi
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2.5">
-                {[
-                  { title: "Pelatihan Ahli K3 Konstruksi (SKP Kemnaker)", provider: "Kemnaker RI", badge: "Bersertifikat", color: "text-red-600" },
-                  { title: "Manajemen Proyek Konstruksi — PMBOK 7th Ed.", provider: "Bimteklatihnas", badge: "Online", color: "text-blue-600" },
-                  { title: "Masterclass BIM 5D — Autodesk Revit", provider: "BIM Konstruksi Indonesia", badge: "Trending", color: "text-purple-600" },
-                ].map((b, i) => (
-                  <Link key={i} href="/bimtek">
-                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer">
-                      <span className="text-xl shrink-0">🎓</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{b.title}</p>
-                        <p className="text-xs text-muted-foreground">{b.provider}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 bg-indigo-50 rounded-full font-medium ${b.color}`}>{b.badge}</span>
-                    </div>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Jadwal pelatihan berbayar sedang diverifikasi. Materi belajar mandiri dan latihan kompetensi tetap bisa diakses.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/study-materials">
+                    <Button variant="outline" size="sm">Buka Materi Belajar</Button>
                   </Link>
-                ))}
-                <Link href="/bimtek">
-                  <Button variant="outline" size="sm" className="w-full mt-1 text-xs gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                    Lihat 15 program Bimtek <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
+                  <Link href="/competency-test">
+                    <Button size="sm">Latihan Kompetensi</Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -539,7 +512,7 @@ export default function Dashboard() {
                   </div>
                   <p className="font-semibold text-sm">Estimasi Biaya Cepat</p>
                 </div>
-                <p className="text-xs text-muted-foreground mb-3">Hitung estimasi RAB proyek Anda berdasarkan standar SNI & AHSP 2025</p>
+                <p className="text-xs text-muted-foreground mb-3">Susun perkiraan awal RAB; verifikasi harga dan standar dengan sumber setempat yang berlaku</p>
                 <div className="grid grid-cols-2 gap-1.5 mb-3 text-xs">
                   {[
                     { label: "Renovasi 50m²", est: "~Rp 90-175 jt", emoji: "🏠" },
@@ -571,16 +544,16 @@ export default function Dashboard() {
                   <div className="bg-green-100 p-1.5 rounded-lg">
                     <Newspaper className="h-4 w-4 text-green-600" />
                   </div>
-                  <p className="font-semibold text-sm">Lowongan Terbaru</p>
+                  <p className="font-semibold text-sm">Proyek Terbaru</p>
                 </div>
-                <p className="text-xs text-muted-foreground mb-3">Info kerja real-time dari Loker.id, Jobstreet, OLX</p>
+                <p className="text-xs text-muted-foreground mb-3">Proyek yang diposting langsung di marketplace KerjaProyek</p>
                 <div className="space-y-1.5 mb-3">
                   {[
                     { title: "Mandor Sipil – Proyek Jalan Tol", co: "Waskita Karya", sal: "Rp 6-9 jt/bln" },
                     { title: "Tukang Las Ahli – Pabrik Cikarang", co: "Krakatau Steel", sal: "Rp 5-7 jt/bln" },
                     { title: "Pengawas Lapangan – Gedung 20L", co: "PP Persero", sal: "Rp 7-12 jt/bln" },
                   ].map(j => (
-                    <Link key={j.title} href="/job-board">
+                    <Link key={j.title} href="/jobs">
                       <div className="p-2 bg-white rounded-lg border border-green-100 hover:border-green-300 transition-colors cursor-pointer">
                         <p className="font-medium text-xs truncate">{j.title}</p>
                         <p className="text-[11px] text-muted-foreground">{j.co} · {j.sal}</p>
@@ -588,9 +561,9 @@ export default function Dashboard() {
                     </Link>
                   ))}
                 </div>
-                <Link href="/job-board">
+                <Link href="/jobs">
                   <Button size="sm" variant="outline" className="w-full text-xs gap-1 border-green-300 hover:bg-green-50">
-                    Lihat 25+ Lowongan <ArrowRight className="h-3 w-3" />
+                    Lihat Semua Proyek <ArrowRight className="h-3 w-3" />
                   </Button>
                 </Link>
               </CardContent>

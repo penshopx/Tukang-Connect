@@ -23,44 +23,17 @@ const SERVICE_CATEGORIES = [
   { icon: <Wifi className="h-6 w-6" />, label: "Sipil", color: "bg-green-50 text-green-600", descriptor: "Pekerjaan struktur lapangan" },
 ];
 
-const TESTIMONIALS = [
-  {
-    name: "Pak Hendro Susanto",
-    role: "Pemilik Rumah",
-    location: "Jakarta Selatan",
-    text: "Klinika Teknis-nya luar biasa! Saya tanya soal pondasi untuk tanah saya yang ekspansif, dapat jawaban lengkap dari Agen AI Struktur dengan referensi SNI langsung. Gak perlu bayar konsultan dulu!",
-    feature: "Klinika Teknis",
-    featureLink: "/klinika",
-    avatar: "HS",
-  },
-  {
-    name: "Bu Ratna Dewi",
-    role: "Developer Properti",
-    location: "Surabaya",
-    text: "Brain Project benar-benar mengubah cara saya mengawasi proyek. Ringkasan kesehatan dan deteksi risiko membantu saya mengambil keputusan dengan lebih tenang.",
-    feature: "Brain Project",
-    featureLink: "/dashboard",
-    avatar: "RD",
-  },
-  {
-    name: "Pak Ahmad Fauzi",
-    role: "Mandor Konstruksi",
-    location: "Bandung",
-    text: "Berkat Bimtek online KerjaProyek, saya lebih percaya diri mengembangkan kompetensi. Dashboard tukang juga membantu saya melacak peluang dan pekerjaan dengan lebih rapi.",
-    feature: "Bimtek & Pelatihan",
-    featureLink: "/bimtek",
-    avatar: "AF",
-  },
-  {
-    name: "Bu Siti Rahayu",
-    role: "Kontraktor Independen",
-    location: "Semarang",
-    text: "Estimator Biaya KerjaProyek membantu saya menyusun RAB dengan lebih rapi. Klien lebih mudah memahami pekerjaan karena saya bisa menunjukkan hitungan berbasis AHSP dan SNI.",
-    feature: "Estimator Biaya",
-    featureLink: "/cost-estimator",
-    avatar: "SR",
-  },
-];
+type Testimonial = {
+  name: string;
+  role: string;
+  location: string;
+  text: string;
+  feature: string;
+  featureLink: string;
+  avatar: string;
+};
+
+const TESTIMONIALS: Testimonial[] = [];
 
 const AI_TOOLS = [
   {
@@ -93,16 +66,16 @@ const AI_TOOLS = [
   },
   {
      emoji: "🏆", title: "Uji Kompetensi SKKNI", badge: "Persiapan Sertifikasi",
-     desc: "Simulasi uji kompetensi BNSP dengan materi SKKNI yang membantu Anda mempersiapkan sertifikasi sesuai bidang.",
+     desc: "Latihan kompetensi konstruksi untuk mengulang materi dan mengenali topik yang perlu dipelajari.",
     link: "/competency-test", color: "from-rose-600/30 to-pink-800/20 border-rose-500/30",
-     highlights: ["Materi sesuai bidang dan level", "Simulasi ujian BNSP", "Penjelasan jawaban yang detail"],
+     highlights: ["Materi sesuai topik", "Latihan mandiri", "Penjelasan jawaban"],
     forRole: "tukang",
   },
   {
-     emoji: "🎓", title: "Bimtek & Pelatihan", badge: "Pelatihan Terarah",
-     desc: "Bimbingan teknis dari PUPR, Kemnaker, BNSP, dan lembaga terakreditasi dengan pilihan format belajar yang fleksibel.",
-    link: "/bimtek", color: "from-teal-600/30 to-cyan-800/20 border-teal-500/30",
-     highlights: ["Sertifikat resmi BNSP/PUPR", "Online dan tatap muka", "Pengembangan kompetensi"],
+     emoji: "📚", title: "Materi Belajar", badge: "Belajar Mandiri",
+     desc: "Pelajari materi teknis konstruksi dan lanjutkan dengan latihan kompetensi.",
+    link: "/study-materials", color: "from-teal-600/30 to-cyan-800/20 border-teal-500/30",
+     highlights: ["Materi teknis konstruksi", "Belajar sesuai keahlian", "Latihan kompetensi tersedia"],
     forRole: "tukang",
   },
 ];
@@ -137,9 +110,9 @@ const HOW_IT_WORKS_TUKANG = [
     link: "/register", linkLabel: "Daftar Gratis",
   },
   {
-    step: "2", icon: "🏆", title: "Tingkatkan Kompetensi via Bimtek",
-    desc: "Temukan pelatihan resmi PUPR/Kemnaker dan simulasi uji SKKNI untuk terus mengembangkan kompetensi dan peluang kerja.",
-    link: "/bimtek", linkLabel: "Lihat Bimtek",
+    step: "2", icon: "🏆", title: "Tingkatkan Kompetensi",
+    desc: "Gunakan materi belajar dan latihan uji kompetensi untuk mengembangkan keahlian.",
+    link: "/study-materials", linkLabel: "Lihat Materi",
   },
   {
     step: "3", icon: "📋", title: "Lamar Proyek Sesuai Keahlian",
@@ -154,7 +127,7 @@ const HOW_IT_WORKS_TUKANG = [
 ];
 
 const TRUST_SIGNALS = [
-  { icon: "🏛️", label: "Terintegrasi dengan", value: "BNSP · Kemnaker · PUPR" },
+  { icon: "📋", label: "Standar kompetensi", value: "SNI · SKKNI · KKNI" },
   { icon: "📋", label: "Standar konstruksi", value: "SNI · SKKNI · KKNI" },
   { icon: "🔐", label: "Keamanan transaksi", value: "Kontrak digital terenkripsi" },
   { icon: "⚡", label: "Powered by", value: "Multi-Agent AI System" },
@@ -266,7 +239,7 @@ export default function HomePage() {
                 { text: "Estimasi RAB Gratis" },
               ] : [
                  { text: "Peluang proyek yang relevan" },
-                { text: "Bimtek Bersertifikat PUPR/BNSP" },
+                { text: "Materi teknis dan latihan kompetensi" },
                 { text: "Uji Kompetensi SKKNI" },
                 { text: "Profil SKK/KKNI Terverifikasi" },
               ]).map(pill => (
@@ -291,10 +264,10 @@ export default function HomePage() {
               { icon: "💬", label: "AI Chatbot", href: "/chatbot" },
             ] : [
               { icon: "📋", label: "Cari Proyek", href: "/jobs" },
-              { icon: "🎓", label: "Bimtek", href: "/bimtek" },
+              { icon: "🎓", label: "Materi Belajar", href: "/study-materials" },
               { icon: "🏆", label: "Uji SKKNI", href: "/competency-test" },
               { icon: "📚", label: "Materi Belajar", href: "/study-materials" },
-              { icon: "🗞️", label: "Lowongan", href: "/job-board" },
+              { icon: "🗞️", label: "Cari Proyek", href: "/jobs" },
               { icon: "💬", label: "AI Chatbot", href: "/chatbot" },
             ]).map(item => (
               <Link key={item.href} href={item.href}>
@@ -478,6 +451,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Features 3-Col ─────────────────────────────────────────────── */}
+      {TESTIMONIALS.length > 0 && (
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -507,7 +481,7 @@ export default function HomePage() {
               {
                 icon: "🎓", title: "Ekosistem Pengembangan", bg: "bg-green-50",
                 points: [
-                  "Bimtek resmi PUPR/Kemnaker/BNSP",
+                  "Materi belajar dan latihan kompetensi SKKNI",
                   "Simulasi uji kompetensi SKKNI",
                   "Klinika Teknis dengan dukungan AI + SNI",
                   "Materi K3, Struktur, MEP, Manajemen",
@@ -532,6 +506,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Connected Workflow ─────────────────────────────────────────── */}
       <section className="py-16 bg-slate-50">
@@ -707,7 +682,7 @@ export default function HomePage() {
               { href: "/chatbot", label: "💬 AI Chatbot" },
               { href: "/klinika", label: "🧠 Klinika Teknis" },
               { href: "/cost-estimator", label: "💰 Estimator RAB" },
-              { href: "/bimtek", label: "🎓 Bimtek" },
+              { href: "/study-materials", label: "📚 Materi Belajar" },
             ].map(l => (
               <Link key={l.href} href={l.href}>
                 <span className="text-sm text-blue-200 hover:text-white underline underline-offset-2 transition-colors">{l.label}</span>

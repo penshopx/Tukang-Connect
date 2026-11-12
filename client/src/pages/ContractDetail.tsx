@@ -143,7 +143,11 @@ export default function ContractDetail() {
           toast({ title: "Ulasan Dikirim! ⭐", description: "Terima kasih sudah memberikan ulasan." });
           setReviewOpen(false);
         },
-        onError: () => toast({ title: "Gagal mengirim ulasan", variant: "destructive" }),
+        onError: (err: any) => toast({
+          title: "Gagal mengirim ulasan",
+          description: err.message,
+          variant: "destructive",
+        }),
       }
     );
   };
@@ -512,6 +516,7 @@ export default function ContractDetail() {
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
                 placeholder="Bagaimana pengalaman Anda bekerja dengan tukang ini? Ceritakan kualitas pekerjaan, ketepatan waktu, komunikasi, dll."
+                maxLength={1000}
                 rows={4}
               />
             </div>

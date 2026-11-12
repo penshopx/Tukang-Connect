@@ -60,7 +60,7 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   // Greetings
   {
     keys: ["halo", "hallo", "hai", "hello", "selamat pagi", "selamat siang", "selamat malam", "assalamualaikum"],
-    response: `Halo! Selamat datang di AI Assistant KerjaProyek 👷\n\nSaya bisa membantu Anda dengan:\n\n🤖 **Dukungan AI** — pertanyaan teknis konstruksi\n📚 **Knowledge Base** — info harga, platform, dan tips\n🔗 **Navigasi Fitur** — Klinika, Bimtek, Estimator, dan lainnya\n\nApa yang bisa saya bantu hari ini?`,
+    response: `Halo! Selamat datang di AI Assistant KerjaProyek 👷\n\nSaya bisa membantu Anda dengan:\n\n🤖 **Dukungan AI** — pertanyaan teknis konstruksi\n📚 **Materi Belajar** — modul dan latihan kompetensi\n🔗 **Navigasi Fitur** — Klinika, Estimator, dan marketplace proyek\n\nApa yang bisa saya bantu hari ini?`,
     links: [{ label: "Klinika Teknis", href: "/klinika" }, { label: "AI Chatbot Help", href: "/chatbot" }],
   },
   { keys: ["terima kasih", "makasih", "thx", "thanks", "oke", "ok siap"], response: "Sama-sama! 😊 Hubungi saya lagi kapanpun ya.\n\n💡 **Tips:** Untuk jawaban teknis yang lebih dalam dengan referensi SNI, kunjungi **Klinika Teknis** — forum tanya jawab dengan dukungan AI spesialis konstruksi!", links: [{ label: "Buka Klinika", href: "/klinika" }] },
@@ -78,7 +78,7 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["harga cat", "biaya pengecatan", "ongkos cat"],
-    response: `Biaya pengecatan dinding:\n\n**Material:**\n• Cat ekonomis: Rp 40-60 rb/m²\n• Cat standar (Dulux/Jotun): Rp 60-90 rb/m²\n• Cat premium (waterproof): Rp 90-140 rb/m²\n\n**Ongkos tukang cat:**\n• Kepala tukang: Rp 150.750/hari (AHSP)\n• Tukang terampil: Rp 70.750/hari\n\n⚡ Urutan benar: Amplas → Tambal → Alkali sealer → Cat dasar → Cat finish (2 lapis)`,
+    response: `Biaya pengecatan bergantung pada kondisi permukaan, jenis cat, jumlah lapisan, akses kerja, dan lokasi. Saya belum memiliki tarif terkini yang terverifikasi. Estimator dapat membantu menyusun perkiraan awal; mintalah penawaran tertulis setempat sebelum menetapkan anggaran.`,
     links: [{ label: "Cari Tukang Cat", href: "/experts?category=Pengecatan" }, { label: "Hitung RAB", href: "/cost-estimator" }],
   },
   {
@@ -88,24 +88,24 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["harga listrik", "biaya instalasi listrik", "pasang listrik", "instalatir"],
-    response: `Biaya instalasi listrik (2025):\n\n**Per titik lampu/stop kontak:** Rp 150-350 rb\n**Panel MCB 10 grup:** Rp 1,5 – 3,5 juta\n**Instalasi rumah 36m²:** Rp 5 – 12 juta\n**Instalasi rumah 100m²:** Rp 15 – 30 juta\n\n**Tarif tukang listrik:** Rp 130-170 rb/hari\n\n⚠️ **Wajib:** Dikerjakan instalatir berlisensi PLN/Kemnaker. SLO (Sertifikat Laik Operasi) wajib sebelum nyala PLN.`,
+    response: `Biaya instalasi listrik bergantung pada kondisi bangunan, spesifikasi material, kapasitas, dan lokasi. Saya belum memiliki daftar harga terbaru yang sudah diverifikasi. Mintalah survei dan penawaran tertulis dari instalatir berizin; pastikan persyaratan laik operasi mengikuti aturan yang berlaku.`,
     links: [{ label: "Cari Teknisi MEP", href: "/experts?category=Listrik" }, { label: "Tanya Agen MEP", href: "/klinika" }],
   },
   {
     keys: ["harga pondasi", "biaya pondasi", "pondasi berapa"],
-    response: `Biaya pondasi (2025):\n\n**Pondasi batu kali:** Rp 1,8 – 2,5 juta/m³\n**Pondasi tapak beton:** Rp 2 – 3,5 juta/titik\n**Strauss pile (Ø30):** Rp 350-600 rb/meter\n**Mini pile (Ø25):** Rp 500-800 rb/meter\n**Bor pile (Ø40):** Rp 800 rb – 1,5 juta/meter\n\n📐 Jenis pondasi bergantung: beban bangunan, daya dukung tanah, dan kedalaman tanah keras.`,
+    response: `Jenis dan biaya pondasi bergantung pada beban bangunan, hasil pemeriksaan tanah, kondisi lokasi, dan desain struktur. Saya belum memiliki tarif terbaru yang diverifikasi. Minta rekomendasi tenaga ahli struktur dan penawaran berdasarkan survei lokasi sebelum menentukan anggaran.`,
     links: [{ label: "Tanya Agen Struktur AI", href: "/klinika" }, { label: "Cari Ahli Pondasi", href: "/experts" }],
   },
   {
     keys: ["upah tukang", "gaji tukang", "berapa bayar tukang", "tarif mandor"],
-    response: `Upah tukang standar AHSP 2025:\n\n**Harian:**\n• Mandor/Kepala Pelaksana: Rp 200.000/hari\n• Kepala Tukang: Rp 150.750/hari\n• Tukang Terampil: Rp 120-130 rb/hari\n• Tukang Setengah Terampil: Rp 90-100 rb/hari\n• Pekerja Helper: Rp 80.000/hari\n\n**Borongan tipikal:**\n• Pasang bata: Rp 80-120 rb/m²\n• Plesteran: Rp 35-60 rb/m²\n• Pengecatan: Rp 40-70 rb/m²\n• Pasang keramik: Rp 50-90 rb/m²`,
-    links: [{ label: "Lihat Referensi Upah", href: "/job-board" }, { label: "Cari Tukang", href: "/experts" }],
+    response: `Saya belum memiliki referensi upah terbaru yang sudah diverifikasi, jadi tidak akan menampilkan angka lama sebagai harga saat ini. Minta penawaran dari tenaga ahli di wilayah proyek Anda dan bandingkan ruang lingkup, bahan, serta durasi pekerjaan.`,
+    links: [{ label: "Cari Tenaga Ahli", href: "/experts" }, { label: "Susun Perkiraan RAB", href: "/cost-estimator" }],
   },
 
   // Platform Features
   {
     keys: ["kerjaproyek itu apa", "platform apa", "tentang kerjaproyek", "cara kerja kerjaproyek", "fitur apa saja"],
-    response: `**KerjaProyek** adalah marketplace konstruksi dengan dukungan AI untuk membantu alur kerja proyek 🏗️\n\n**Untuk Owner/Boher:**\n• 👷 Cari tukang dan tenaga ahli berdasarkan kompetensi\n• 💰 Estimator Biaya RAB berbasis SNI & AHSP\n• 🔮 Brain Project — dukungan supervisi kontrak\n• 📝 Kontrak digital dan milestone yang lebih tertata\n\n**Untuk Tukang/Mandor:**\n• 📋 Cari proyek sesuai keahlian\n• 🎓 Bimtek dari lembaga dan sumber yang relevan\n• 🏆 Simulasi uji kompetensi SKKNI/BNSP\n• 📚 Materi teknis K3, Struktur, dan SNI\n\n**Untuk Semua:**\n• 🧠 Klinika Teknis — tanya jawab dengan dukungan AI\n• 🗞️ Job Board — peluang kerja konstruksi\n• 💬 AI Chatbot untuk membantu kebutuhan Anda`,
+    response: `**KerjaProyek** adalah marketplace konstruksi dengan dukungan AI untuk membantu alur kerja proyek 🏗️\n\n**Untuk Pelanggan:**\n• 👷 Cari tukang dan tenaga ahli berdasarkan kompetensi\n• 💰 Estimator untuk menyusun perkiraan awal RAB\n• 🔮 Brain Project — dukungan supervisi kontrak\n• 📝 Kontrak digital dan milestone yang lebih tertata\n\n**Untuk Tukang/Mandor:**\n• 📋 Cari proyek yang diposting di marketplace\n• 🏆 Latihan uji kompetensi\n• 📚 Materi teknis konstruksi\n\n**Untuk Semua:**\n• 🧠 Klinika Teknis — tanya jawab dengan dukungan AI\n• 💬 AI Chatbot untuk membantu kebutuhan Anda`,
     links: [{ label: "Dashboard Saya", href: "/dashboard" }, { label: "Daftar Gratis", href: "/register" }],
   },
   {
@@ -120,12 +120,12 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["bimtek", "pelatihan konstruksi", "kursus konstruksi", "training konstruksi"],
-    response: `**Bimtek & Pelatihan KerjaProyek** 🎓\n\nPilihan pelatihan dari lembaga dan sumber resmi:\n\n🏛️ **Pemerintah:** PUPR, Kemnaker, Bina Konstruksi\n🎯 **Sertifikasi:** BNSP, K3 Umum, SKA/SKT\n💻 **Online/Hybrid:** BIM, Estimasi RAB, dan SNI\n\n**Kategori:**\nStruktur & Sipil · RAB & Estimasi · BIM & Digital\nK3 Konstruksi · Manajemen Proyek · MEP · Hukum Kontrak\n\n**Format:** Online · Offline · Hybrid · Self-paced\n**Biaya:** Tergantung pelatihan dan penyelenggara; periksa detail pada halaman program.`,
-    links: [{ label: "Lihat Bimtek", href: "/bimtek" }, { label: "Uji Kompetensi SKKNI", href: "/competency-test" }],
+    response: `Jadwal Bimtek sedang dinonaktifkan karena tanggal, biaya, dan penyelenggara belum dapat diverifikasi. Materi belajar mandiri dan latihan kompetensi tetap tersedia.`,
+    links: [{ label: "Materi Belajar", href: "/study-materials" }, { label: "Uji Kompetensi", href: "/competency-test" }],
   },
   {
     keys: ["uji kompetensi", "skkni", "bnsp", "sertifikat konstruksi", "skk", "kkni level"],
-    response: `**Uji Kompetensi SKKNI di KerjaProyek** 🏆\n\nSimulasi latihan uji BNSP:\n\n**Level KKNI Tersedia:** Level 1-9\n• Level 1-2: Operator lapangan\n• Level 3-4: Teknisi & Supervisor\n• Level 5-6: Kepala Pelaksana & Ahli Muda\n• Level 7-8: Ahli Madya & Utama\n• Level 9: Konsultan & Advisor\n\n**Bidang:** K3, Struktur, MEP, Manajemen, Estimasi, Arsitektur\n\n**Fitur:** Bank soal SKKNI + penjelasan jawaban detail + simulasi timer BNSP\n\n💡 Sertifikasi BNSP = tarif proyek lebih tinggi + profil lebih dipercaya!`,
+    response: `Halaman Uji Kompetensi menyediakan simulasi latihan untuk membantu belajar topik konstruksi. Simulasi ini bukan ujian resmi, tidak menerbitkan sertifikat, dan bukan pengganti asesmen oleh LSP berwenang. Lihat halaman latihan untuk topik yang saat ini tersedia.`,
     links: [{ label: "Mulai Uji Kompetensi", href: "/competency-test" }, { label: "Materi Belajar", href: "/study-materials" }],
   },
   {
@@ -135,12 +135,12 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   },
   {
     keys: ["job board", "lowongan konstruksi", "cari kerja konstruksi", "lowongan tukang", "loker konstruksi"],
-    response: `**Job Board KerjaProyek** 🗞️\n\nAgregasi lowongan konstruksi yang diperbarui mengikuti ketersediaan sumber:\n\n**Sumber:** Loker.id · Indeed · Jobstreet · Jooble · OLX · KerjaProyek\n\n**Tipe Pekerjaan:**\n• Full time: Supervisor, Manager, Engineer\n• Harian: Mandor, Tukang spesialis\n• Borongan: Kontraktor, Tim tukang\n• Kontrak: Pengawas, QC/QA\n• Part time: Konsultan, Drafter\n\n**Upah:** Periksa detail setiap lowongan dan gunakan referensi AHSP sebagai bahan pertimbangan.`,
-    links: [{ label: "Buka Job Board", href: "/job-board" }, { label: "Daftar Jadi Tukang", href: "/register" }],
+    response: `Agregasi lowongan dari situs eksternal sedang dinonaktifkan karena masa berlaku dan tautan sumber belum dapat diverifikasi. Proyek yang diposting langsung di KerjaProyek tetap tersedia di marketplace.`,
+    links: [{ label: "Lihat Proyek", href: "/jobs" }, { label: "Daftar Jadi Tukang", href: "/register" }],
   },
   {
     keys: ["materi belajar", "modul konstruksi", "belajar konstruksi", "study material"],
-    response: `**Materi Belajar KerjaProyek** 📚\n\nModul teknis gratis untuk tenaga konstruksi:\n\n**Tersedia:**\n📋 K3 Konstruksi Gedung Bertingkat\n🏗️ Struktur Beton & Penulangan\n📐 Manajemen Proyek Konstruksi\n📊 Estimasi Biaya & RAB\n⚡ MEP — Instalasi Listrik & Plambing\n🧱 Spesifikasi Material & SNI\n\n**Format:** Modul teks + topik detail + tips ujian BNSP\n**Level:** Disesuaikan per jenjang KKNI`,
+    response: `**Materi Belajar KerjaProyek** 📚\n\nMateri yang tersedia dapat dilihat langsung di halaman belajar. Rekomendasi menyesuaikan keahlian pada profil; beberapa bidang mungkin belum memiliki modul khusus. Materi ini untuk belajar mandiri, bukan sertifikat atau ujian resmi.`,
     links: [{ label: "Buka Materi Belajar", href: "/study-materials" }, { label: "Uji Kompetensi", href: "/competency-test" }],
   },
   {
@@ -171,7 +171,7 @@ const KB: Array<{ keys: string[]; response: string; links?: { label: string; hre
   {
     keys: ["profil tukang", "lengkapi profil", "sertifikasi bnsp", "kkni", "skk"],
     response: `**Tips Profil Tukang yang Kuat** 👤\n\n**Sebaiknya dilengkapi agar mudah dipahami calon klien:**\n📸 Foto profil profesional\n📝 Bio yang jelas dan spesifik\n🔧 Keahlian teknis yang dikuasai\n📍 Lokasi dan area kerja\n🏅 Jenjang kompetensi KKNI\n📜 Sertifikasi yang relevan\n🏗️ Portofolio proyek dengan foto\n\n💡 **Manfaat profil lengkap:**\n• Membantu calon klien memahami kompetensi Anda\n• Memberi konteks yang lebih baik untuk rekomendasi AI\n• Memudahkan pembahasan ruang lingkup pekerjaan\n• Menampilkan status verifikasi pada profil`,
-    links: [{ label: "Edit Profil Saya", href: "/profile/edit" }, { label: "Akses Bimtek", href: "/bimtek" }],
+    links: [{ label: "Edit Profil Saya", href: "/profile/edit" }, { label: "Materi Belajar", href: "/study-materials" }],
   },
   {
     keys: ["daftar", "register", "buat akun", "cara daftar", "biaya daftar", "gratis"],
@@ -214,7 +214,7 @@ const CATEGORIES = [
   { icon: <Building2 className="h-4 w-4" />, label: "Struktur", queries: ["Pondasi tanah bekas sawah?", "Kolom rumah 2 lantai?", "Cara deteksi retak struktural?"] },
   { icon: <Zap className="h-4 w-4" />, label: "MEP", queries: ["AC untuk ruang 5×6m?", "Ukuran pipa air 2 lantai?", "Standar PUIL 2011?"] },
   { icon: <BookOpen className="h-4 w-4" />, label: "Platform", queries: ["Cara posting proyek?", "Apa itu Brain Project?", "Cara pakai Klinika Teknis?"] },
-  { icon: <GraduationCap className="h-4 w-4" />, label: "Bimtek", queries: ["Ada bimtek K3 online?", "Cara dapat sertifikat BNSP?", "Bimtek untuk KKNI level 6?"] },
+  { icon: <GraduationCap className="h-4 w-4" />, label: "Materi Belajar", queries: ["Materi apa yang tersedia?", "Cara belajar K3 konstruksi?", "Bagaimana latihan kompetensi?"] },
   { icon: <Newspaper className="h-4 w-4" />, label: "Lowongan", queries: ["Lowongan mandor di Jakarta?", "Gaji site supervisor?", "Cara daftar jadi tukang?"] },
 ];
 
@@ -232,8 +232,8 @@ const FEATURE_LINKS = [
   { icon: "🧠", label: "Klinika", href: "/klinika" },
   { icon: "💰", label: "Estimator", href: "/cost-estimator" },
   { icon: "🔮", label: "Brain Project", href: "/dashboard" },
-  { icon: "🎓", label: "Bimtek", href: "/bimtek" },
-  { icon: "🗞️", label: "Lowongan", href: "/job-board" },
+  { icon: "🎓", label: "Materi Belajar", href: "/study-materials" },
+  { icon: "🗞️", label: "Cari Proyek", href: "/jobs" },
   { icon: "🏆", label: "Uji SKKNI", href: "/competency-test" },
 ];
 

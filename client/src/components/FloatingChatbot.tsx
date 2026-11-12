@@ -8,8 +8,8 @@ import {
   Calculator,
   ClipboardList,
   FileCheck2,
-  GraduationCap,
   LayoutDashboard,
+  BookOpen,
   Search,
 } from "lucide-react";
 
@@ -26,8 +26,8 @@ const FEATURE_SHORTCUTS = [
   { label: "Estimator RAB", href: "/cost-estimator", icon: Calculator },
   { label: "Kontrak", href: "/contracts", icon: FileCheck2 },
   { label: "Cari Ahli", href: "/experts", icon: Search },
-  { label: "Bimtek & SKKNI", href: "/bimtek", icon: GraduationCap },
-  { label: "Job Board", href: "/job-board", icon: ClipboardList },
+  { label: "Materi Belajar", href: "/study-materials", icon: BookOpen },
+  { label: "Cari Proyek", href: "/jobs", icon: ClipboardList },
 ];
 
 export default function FloatingChatbot() {

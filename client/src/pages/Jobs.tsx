@@ -297,8 +297,8 @@ export default function JobsPage() {
               <p className="text-xs text-muted-foreground">Profil lengkap dengan sertifikasi BNSP/KKNI membantu calon klien memahami kompetensi Anda</p>
             </div>
             <div className="flex gap-2">
-              <Link href="/bimtek">
-                <Button variant="outline" size="sm" className="text-xs gap-1">🎓 Bimtek & Sertifikasi</Button>
+              <Link href="/competency-test">
+                <Button variant="outline" size="sm" className="text-xs gap-1">🎓 Latihan Kompetensi</Button>
               </Link>
               <Link href="/profile/edit">
                 <Button size="sm" className="text-xs gap-1"><Award className="h-3.5 w-3.5" /> Lengkapi Profil</Button>

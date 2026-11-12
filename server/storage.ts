@@ -548,6 +548,9 @@ const storageApi = {
     if (filters?.category) { q += ` AND category = $${i++}`; params.push(filters.category); }
     if (filters?.status) { q += ` AND status = $${i++}`; params.push(filters.status); }
     if (filters?.clientId) { q += ` AND client_id = $${i++}`; params.push(filters.clientId); }
+    if (!filters?.clientId && (!filters?.status || filters.status === "open")) {
+      q += " AND (status <> 'open' OR deadline IS NULL OR deadline >= CURRENT_DATE)";
+    }
     q += " ORDER BY created_at DESC";
     const r = await pool.query(q, params);
     return r.rows.map(jobFromRow);
@@ -824,14 +827,35 @@ const storageApi = {
     const r = await pool.query("SELECT * FROM reviews WHERE reviewee_id = $1 ORDER BY id", [userId]);
     return r.rows.map(reviewFromRow);
   },
-  createReview: async (data: Omit<Review, "id" | "createdAt">): Promise<Review> => {
-    const r = await pool.query(
-      `INSERT INTO reviews (reviewer_id, reviewee_id, job_id, rating, comment)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [data.reviewerId, data.revieweeId, data.jobId, data.rating, data.comment]
-    );
-    return reviewFromRow(r.rows[0]);
-  },
+  createReview: async (data: Omit<Review, "id" | "createdAt">) =>
+    withTransaction(async (client) => {
+      const completedContract = await client.query(
+        `SELECT id FROM contracts
+         WHERE job_id = $1 AND client_id = $2 AND worker_id = $3 AND status = 'completed'
+         ORDER BY id DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [data.jobId, data.reviewerId, data.revieweeId],
+      );
+      if (!completedContract.rows[0]) {
+        return { status: "not_eligible" as const };
+      }
+
+      const existingReview = await client.query(
+        "SELECT id FROM reviews WHERE reviewer_id = $1 AND job_id = $2 LIMIT 1",
+        [data.reviewerId, data.jobId],
+      );
+      if (existingReview.rows[0]) {
+        return { status: "already_reviewed" as const };
+      }
+
+      const insertedReview = await client.query(
+        `INSERT INTO reviews (reviewer_id, reviewee_id, job_id, rating, comment)
+         VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+        [data.reviewerId, data.revieweeId, data.jobId, data.rating, data.comment],
+      );
+      return { status: "created" as const, review: reviewFromRow(insertedReview.rows[0]) };
+    }),
   getRating: async (userId: number): Promise<{ average: number; count: number }> => {
     const r = await pool.query(
       "SELECT AVG(rating)::numeric(3,1) as avg, COUNT(*)::int as cnt FROM reviews WHERE reviewee_id = $1",
